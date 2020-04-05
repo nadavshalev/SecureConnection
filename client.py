@@ -17,6 +17,7 @@ class Client:
 	HOST = '127.0.0.1'
 	PORT = 65432
 	PACK_SIZE = 1024
+	MAX_RETRY = 3
 
 	P = {
 		'hello_msg': b'Hello Server',
@@ -44,8 +45,13 @@ class Client:
 
 	def open_secure_connection(self):
 		state = Stat.HELLO
+		ind_retry = 0
 
 		while True:
+			# fail MAX_RETRY times
+			if ind_retry == self.MAX_RETRY:
+				return False
+
 			if state == Stat.HELLO:
 				self.s.sendall(self.P['hello_msg'])
 				state = Stat.GET_KEY
@@ -62,7 +68,7 @@ class Client:
 				except Exception as e:
 					print('Connection Broke!')
 					print(e)
-					return False
+					state = Stat.HELLO
 
 			elif state == Stat.SECURE:
 				try:
@@ -74,9 +80,12 @@ class Client:
 				except Exception as e:
 					print('Connection Broke!')
 					print(e)
-					return False
+					state = Stat.HELLO
 
 			data = self.s.recv(self.PACK_SIZE)
+			if data == b'':
+				print('Error: Socket Disconnected')
+				return False
 
 	def close_secure_connection(self):
 		for i in range(3):
