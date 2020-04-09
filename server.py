@@ -5,6 +5,7 @@ import binascii
 import RSACipher
 import AESCipher
 from enum import Enum
+from time import sleep
 
 
 class Stat(Enum):
@@ -46,10 +47,11 @@ class Server:
 				if msg is None:
 					break
 				new_msg = 'server response... ' + msg
+				print(new_msg)
 				self.send(conn, new_msg)
 
 			# self.close_secure_connection(conn)
-			break
+			# break
 
 	def open_secure_connection(self, conn):
 		state = Stat.HELLO
