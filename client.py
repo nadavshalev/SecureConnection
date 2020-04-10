@@ -39,10 +39,10 @@ class Client:
 
 	def __init__(self, rx_callback):
 		self.rx_callback = rx_callback
-		self.log = open(self.LOG_FILE_PATH, 'a')
-		self.log.write('----------------------------------------\n')
-		self.log.write(str(datetime.datetime.now()) + '\n')
-		self.log.write('----------------------------------------\n')
+		self.log_file = open(self.LOG_FILE_PATH, 'a')
+		self.log('----------------------------------------')
+		self.log(str(datetime.datetime.now()))
+		self.log('----------------------------------------')
 		atexit.register(self.on_terminate)
 
 	def connect(self):
@@ -56,15 +56,15 @@ class Client:
 		try:
 			self.s.connect((self.HOST, self.PORT))
 		except:
-			self.log.write("Fail (connect): can't connect socket\n")
+			self.log("Fail (connect): can't connect socket")
 			self.disconnect()
 			return False
 
 		# protocol connection
 		if self.open_secure_connection():
-			self.log.write('Success (connect): Secure Connection\n')
+			self.log('Success (connect): Secure Connection')
 		else:
-			self.log.write('Fail (connect): Secure Connection\n')
+			self.log('Fail (connect): Secure Connection')
 			self.disconnect()
 			return False
 
@@ -82,11 +82,11 @@ class Client:
 		self.send(self.P['request_close_conn'])
 		for i in range(self.MAX_RETRY):
 			if not self.connected:
-				self.log.write('Success (disconnect): secure connection closed\n')
+				self.log('Success (disconnect): secure connection closed')
 				return True
 			sleep(1)
 		self.clear_connection()
-		self.log.write("Fail (disconnect): can't close listening thread\n")
+		self.log("Fail (disconnect): can't close listening thread")
 		return False
 
 	def open_secure_connection(self):
@@ -98,7 +98,7 @@ class Client:
 			if state == Stat.HELLO:
 				self.s.sendall(self.P['hello_msg'])
 				state = Stat.GET_KEY
-				self.log.write('HELLO: success\n')
+				self.log('HELLO: success')
 
 			elif state == Stat.GET_KEY:
 				try:
@@ -106,10 +106,10 @@ class Client:
 					encrypted = self.rsa.encrypt(self.aes.key)
 					self.s.sendall(encrypted)
 					state = Stat.SECURE
-					self.log.write('GET_KEY: success\n')
+					self.log('GET_KEY: success')
 
 				except Exception as e:
-					self.log.write('Fail (open_secure_connection): create secure connection!\n')
+					self.log('Fail (open_secure_connection): create secure connection!')
 					print(e)
 					return False
 
@@ -121,14 +121,14 @@ class Client:
 					else:
 						return False
 				except Exception as e:
-					self.log.write('Fail (open_secure_connection): create secure connection!\n')
+					self.log('Fail (open_secure_connection): create secure connection!')
 					print(e)
 					return False
 
 			data = self.s.recv(self.PACK_SIZE)
 
 			if data == b'':
-				self.log.write('Error: Socket Disconnected\n')
+				self.log('Error: Socket Disconnected')
 				return False
 
 	def clear_connection(self):
@@ -140,7 +140,7 @@ class Client:
 
 	def send(self, msg):
 		if not self.connected:
-			self.log.write('Fail (send): not connected\n')
+			self.log('Fail (send): not connected')
 			return False
 
 		enc = self.aes.encrypt(msg)
@@ -149,7 +149,7 @@ class Client:
 			return True
 		except:
 			# recreate the socket and reconnect
-			self.log.write(f'Socket: connection broke\n')
+			self.log(f'Socket: connection broke')
 			self.msg_drop_buff.append(msg)
 			self.clear_connection()
 			if self.FORCE_CONNECTION:
@@ -161,7 +161,7 @@ class Client:
 	# core receiver implementation
 	def receive(self):
 		if not self.connected:
-			self.log.write('Fail (receive): not connected\n')
+			self.log('Fail (receive): not connected')
 			return False
 
 		data = self.s.recv(self.PACK_SIZE)
@@ -174,7 +174,7 @@ class Client:
 	# start receiver thread
 	def run_receive(self):
 		if not self.connected:
-			self.log.write('Fail (run_receive): not connected\n')
+			self.log('Fail (run_receive): not connected')
 			return False
 		self.rx = threading.Thread(target=self.receive_runtime)
 		self.rx.start()
@@ -188,19 +188,19 @@ class Client:
 			if msg == self.P['accept_close_conn']:
 				self.connected = False
 				self.clear_connection()
-				self.log.write('Success (receive_runtime): Connection Closed By User\n')
+				self.log('Success (receive_runtime): Connection Closed By User')
 				break
 			elif msg == self.P['request_close_conn']:
 				self.send(self.P['accept_close_conn'])
 				self.connected = False
 				self.clear_connection()
-				self.log.write('Success (receive_runtime): Connection Closed By Server\n')
+				self.log('Success (receive_runtime): Connection Closed By Server')
 				break
 
 			if msg:
 				self.rx_callback(msg)
 			else:
-				self.log.write('Fail (receive_runtime): socket connection ended\n')
+				self.log('Fail (receive_runtime): socket connection ended')
 				self.connected = False
 				self.disconnect()
 				if self.FORCE_CONNECTION:
@@ -208,15 +208,22 @@ class Client:
 				break
 
 	def on_terminate(self):
-		self.log.write('exit program\n')
-		self.log.close()
+		self.log('exit program.')
+		self.log_file.close()
+
+	def log(self, txt):
+		self.log_file.write(str(datetime.datetime.now()) + ':\t' + txt + '\n')
 
 
+listener_path = 'res_file.txt'
+listener_file = open(listener_path, 'w')
 def to_print(msg):
-	print(msg)
+	listener_file.write(msg + '\n')
 
 client = Client(to_print)
-client.connect()
+if not client.connect():
+	print('cant connect to server. exit')
+	exit(1)
 
 while True:
 	msg = input('Write Message Q[quit]: ')
@@ -225,8 +232,16 @@ while True:
 		break
 	# try reconnect
 	if not client.send(msg):
-		while True:
+		sucess = False
+		for i in range(3):
 			sleep(1)
 			print('No Connection... try again')
 			if client.connect():
+				print('success: connection reopened')
+				sucess = True
 				break
+		if not sucess:
+			print('Failed. close program')
+			break
+listener_file.close()
+exit(0)

@@ -6,6 +6,7 @@ import RSACipher
 import AESCipher
 from enum import Enum
 from time import sleep
+import types
 
 
 class Stat(Enum):
@@ -28,41 +29,43 @@ class Server:
 	}
 
 	def __init__(self):
-		self.rsa = RSACipher.RSAPrivate()
-		self.aes = AESCipher.AESCipher()
 
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.s.bind((self.HOST, self.PORT))
 		self.s.listen()
 
+
 	def start(self):
+		# get connections forever
 		while True:
-			conn, addr = self.s.accept()
-			print('Connected by', addr)
+			session = types.SimpleNamespace()
 
-			self.open_secure_connection(conn)
+			session.conn, session.addr = self.s.accept()
+			print('Connected by', session.addr)
 
+			session.rsa = RSACipher.RSAPrivate()
+			session.aes = AESCipher.AESCipher()
+
+			if not self.open_secure_connection(session):
+				self.disconnect(session)
+				continue
+
+			# read and response forever
 			while True:
-				msg = self.receive(conn)
+				msg = self.receive(session)
 				if msg is None:
+					self.disconnect(session)
 					break
 				new_msg = 'server response... ' + msg
 				print(new_msg)
-				self.send(conn, new_msg)
+				self.send(session, new_msg)
 
-			# self.close_secure_connection(conn)
-			# break
-
-	def open_secure_connection(self, conn):
+	def open_secure_connection(self, session):
 		state = Stat.HELLO
-		ind_retry = 0
 
 		while True:
-			# fail MAX_RETRY times
-			if ind_retry == self.MAX_RETRY:
-				return False
 
-			data = conn.recv(1024)
+			data = session.conn.recv(1024)
 
 			# case socket closed by client
 			if data == b'':
@@ -71,61 +74,57 @@ class Server:
 
 			if state == Stat.HELLO:
 				if data == self.P['hello_msg']:
-					conn.sendall(self.export_rsa_key())
+					session.conn.sendall(self.export_rsa_key(session))
 					state = Stat.GET_KEY
 					print('HELLO: success')
+				else:
+					return False
 
 			elif state == Stat.GET_KEY:
 				try:
-					key = self.rsa.decrypt(data)
-					self.aes.set_key(key)
-					enc = self.aes.encrypt(self.P['secure_established'])
-					conn.sendall(enc)
+					key = session.rsa.decrypt(data)
+					session.aes.set_key(key)
+					enc = session.aes.encrypt(self.P['secure_established'])
+					session.conn.sendall(enc)
 					state = Stat.SECURE
 					print('GET_KEY: success')
-					break
+					return True
 				except Exception as e:
 					print('Connection Reset...')
 					print(e)
-					state = Stat.HELLO
+					return False
 
-	def close_secure_connection(self, conn):
-		for i in range(3):
-			self.send(conn, self.P['request_close_conn'])
-			if self.receive(conn) == self.P['accept_close_conn']:
-				self.aes = None
-				self.rsa = None
-				self.disconnect(conn)
-				print('Secure connection closed')
-				return True
-		raise RuntimeError('Fail to close secure connection')
+	def close_secure_connection(self, session):
+		self.send(session, self.P['request_close_conn'])
+		self.disconnect(session)
+		print('Secure connection closed')
 
-	def send(self, conn, msg):
-		enc = self.aes.encrypt(msg)
-		conn.sendall(enc)
+	def send(self, session, msg):
+		enc = session.aes.encrypt(msg)
+		session.conn.sendall(enc)
 
-	def receive(self, conn):
-		data = conn.recv(self.PACK_SIZE)
+	def receive(self, session):
+		data = session.conn.recv(self.PACK_SIZE)
 		if data == b'':
-			raise RuntimeError('Connection Broke!')
+			print('Connection Broke!')
+			return None
 
-		dec = self.aes.decrypt(data)
+		dec = session.aes.decrypt(data)
 
 		# case server ask to close secure connection
 		if dec == self.P['request_close_conn']:
-			self.send(conn, self.P['accept_close_conn'])
-			self.aes = None
-			self.rsa = None
-			self.disconnect(conn)
+			self.send(session, self.P['accept_close_conn'])
 			print('Connection Closed By User')
 			return None
-		return self.aes.decrypt(data)
+		return session.aes.decrypt(data)
 
-	def disconnect(self, conn):
-		conn.close()
+	def disconnect(self, session):
+		session.aes = None
+		session.rsa = None
+		session.conn.close()
 
-	def export_rsa_key(self):
-		return self.rsa.export_public()
+	def export_rsa_key(self, session):
+		return session.rsa.export_public()
 
 
 server = Server()
