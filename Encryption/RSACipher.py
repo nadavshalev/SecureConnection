@@ -25,8 +25,10 @@ class RSAPrivate:
 
 
 class RSAPublic:
-    public_key = None
-    encryptor = None
+
+    def __init__(self):
+        self.public_key = None
+        self.encryptor = None
 
     def load_key(self, pub_key):
         self.public_key = RSA.importKey(pub_key)

@@ -5,8 +5,6 @@ from Encryption import AESCipher, RSACipher
 
 class ConnSecure(ConnInterface):
 
-    rsa = None
-    aes = None
     P = {
         'hello_msg': b'Hello Server',
         'secure_established': 'aes_is_set',
@@ -21,6 +19,8 @@ class ConnSecure(ConnInterface):
             self.type = 'secure_server'
         else:
             self.type = 'secure'
+        self.rsa = None
+        self.aes = None
 
     def connect(self):
         # set lower connection

@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 import datetime
 
+
 class ConnInterface(ABC):
-    connected = False
-    type = 'interface'
 
     def __init__(self, log_file):
         self.log_file = log_file
+        self.type = 'interface'
+        self.connected = False
 
     @abstractmethod
     def connect(self) -> bool:

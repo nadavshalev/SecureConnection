@@ -8,9 +8,9 @@ import secrets
 class AESCipher:
 
     BS = 32
-    key = None
 
     def __init__(self, key=None):
+        self.key = None
         if key is not None:
             self.set_key(key)
 
