@@ -1,11 +1,6 @@
 import socket
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-import binascii
-import RSACipher
-import AESCipher
+from Encryption import AESCipher, RSACipher
 from enum import Enum
-from time import sleep
 import types
 
 
@@ -59,6 +54,8 @@ class Server:
 				new_msg = 'server response... ' + msg
 				print(new_msg)
 				self.send(session, new_msg)
+				# session.conn.shutdown(socket.SHUT_RDWR)
+				break
 
 	def open_secure_connection(self, session):
 		state = Stat.HELLO

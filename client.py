@@ -1,9 +1,6 @@
 import socket
 from time import sleep
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-import RSACipher
-import AESCipher
+from Encryption import AESCipher, RSACipher
 from enum import Enum
 import threading
 import datetime
