@@ -23,16 +23,28 @@ class AESCipher:
         raw = self.pad(raw)
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        return base64.b64encode(iv + cipher.encrypt(raw))
+        enc_msg = iv + cipher.encrypt(raw)
+        # set HMAC
+        hmac = self.hmac_sha256(enc_msg)
+        return base64.b64encode(enc_msg+hmac)
 
     def decrypt(self, enc):
         enc = base64.b64decode(enc)
         iv = enc[:16]
+        msg_enc = enc[16:-32]
+
+        # HMAC verify
+        rx_hmac = enc[-32:]
+        tx_hmax = self.hmac_sha256(iv+msg_enc)
+        if tx_hmax != rx_hmac:
+            raise RuntimeError('HMAC not fit!')
+
+        # decode
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        return self.unpad(cipher.decrypt(enc[16:])).decode('utf8')
+        return self.unpad(cipher.decrypt(msg_enc)).decode('utf8')
 
     def hmac_sha256(self, msg):
-        return base64.b64encode(hmac.new(self.key, msg, digestmod=hashlib.sha256).digest())
+        return hmac.new(self.key, msg, digestmod=hashlib.sha256).digest()
 
     def unpad(self, s):
         return s[0:-ord(s[-1:])]
@@ -47,6 +59,15 @@ class AESCipher:
 
 # aes1 = AESCipher()
 # aes1.gen_key()
+# aes2 = AESCipher()
+# aes2.gen_key()
+#
+# enc = aes1.encrypt('Hello World')
+# print(enc)
+# print(len(enc))
+# msg = aes2.decrypt(enc)
+# print(msg)
+# print(len(msg))
 # print(b'KEY: ' + aes1.key)
 # print(len(aes1.key))
 # msg = 'OCB is by far the best mode, as it allows encryption and authentication in a single pass. However there are ' \
