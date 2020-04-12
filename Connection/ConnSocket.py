@@ -1,27 +1,23 @@
 from Connection.ConnInterface import ConnInterface
 import socket
 
-
+"""
+============== Class Socket =============
+global Implementations:
+    disconnect()
+    send()
+    receive()
+"""
 class ConnSocket(ConnInterface):
     PACK_SIZE = 1024
 
-    def __init__(self, ip, port, log_file):
+    def __init__(self, log_file):
         ConnInterface.__init__(self, log_file)
         self.type = 'socket'
-        self.ip = ip
-        self.port = port
         self.s = None
 
     def connect(self):
-        try:
-            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.s.connect((self.ip, self.port))
-        except:
-            self.log("Error (connect): can't connect socket")
-            self.disconnect()
-            return False
-        self.connected = True
-        return True
+        raise NotImplementedError
 
     def disconnect(self):
         if self.connected:
@@ -43,7 +39,6 @@ class ConnSocket(ConnInterface):
                 if sent == 0:
                     raise ConnectionError("socket connection broken")
                 total_sent = total_sent + sent
-                print(sent)
         except Exception as e:
             self.disconnect()
             self.log('Error (send): ' + repr(e))
@@ -69,11 +64,45 @@ class ConnSocket(ConnInterface):
         return data
 
 
-# f = open('log_conn.txt', 'a')
-# c = ConnSocket('127.0.0.1',65432, f)
-# print(type(c) == ConnSocket)
-# print(c.connected)
-# print(c.connect())
-# c.send(b'bla bla')
-# print(c.receive())
-# f.close()
+"""
+============== Client Socket =============
+connect to socket by 5-tuple
+must call connect()
+"""
+class ConnSocketClient(ConnSocket):
+    def __init__(self, ip, port, log_file):
+        ConnInterface.__init__(self, log_file)
+        self.type = 'socket'
+        self.ip = ip
+        self.port = port
+        self.s = None
+
+    def connect(self):
+        if self.connected:
+            self.log('Warning (connect): already connected')
+            return True
+
+        try:
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s.connect((self.ip, self.port))
+        except:
+            self.log("Error (connect): can't connect socket")
+            self.disconnect()
+            return False
+
+        self.connected = True
+        return True
+
+
+"""
+============== Server Socket =============
+connect to socket by accept() and then create class instance
+can't call connect() - already connected
+when disconnect(): must exit and create new instance after server connect a new socket
+"""
+class ConnSocketServer(ConnSocket):
+    def __init__(self, conn, log_file):
+        ConnInterface.__init__(self, log_file)
+        self.type = 'socket'
+        self.s = conn
+        self.connected = True

@@ -1,10 +1,16 @@
 from Connection.ConnInterface import ConnInterface
-from Connection.ConnSocket import ConnSocket
+from Connection.ConnSocket import ConnSocketClient, ConnSocketServer
 from Encryption import AESCipher, RSACipher
 
 
+"""
+============== Class Secure =============
+global Implementations:
+    disconnect()
+    send()
+    receive()
+"""
 class ConnSecure(ConnInterface):
-
     P = {
         'hello_msg': b'Hello Server',
         'secure_established': 'aes_is_set',
@@ -15,7 +21,7 @@ class ConnSecure(ConnInterface):
     def __init__(self, base_conn, log_file):
         ConnInterface.__init__(self, log_file)
         self.s = base_conn
-        if type(base_conn) == ConnSocket:
+        if (type(base_conn) == ConnSocketClient) or (type(base_conn) == ConnSocketServer):
             self.type = 'secure_server'
         else:
             self.type = 'secure'
@@ -23,20 +29,7 @@ class ConnSecure(ConnInterface):
         self.aes = None
 
     def connect(self):
-        # set lower connection
-        if not self.s.connect():
-            return False
-
-        # set encryption setup
-        self.rsa = RSACipher.RSAPublic()
-        self.aes = AESCipher.AESCipher()
-        self.aes.gen_key()
-
-        # set secure conn (raise an error if fails)
-        self.open_secure_connection()
-
-        self.connected = True
-        return True
+        raise NotImplementedError
 
     def disconnect(self):
         # send close request (should not fail)
@@ -87,8 +80,39 @@ class ConnSecure(ConnInterface):
 
         return dec
 
-    def open_secure_connection(self):
 
+"""
+============== Client Secure =============
+connect to server securely
+must call connect()
+"""
+class ConnSecureClient(ConnSecure):
+    def connect(self):
+        if self.connected:
+            self.log('Warning (connect): already connected')
+            return True
+
+        # set lower connection
+        if not self.s.connect():
+            return False
+
+        try:
+            # set encryption setup
+            self.rsa = RSACipher.RSAPublic()
+            self.aes = AESCipher.AESCipher()
+            self.aes.gen_key()
+
+            # set secure conn (raise an error if fails)
+            self.open_secure_connection()
+        except:
+            self.log("Error (connect): can't connect")
+            self.disconnect()
+            return False
+
+        self.connected = True
+        return True
+
+    def open_secure_connection(self):
         try:
             self.s.send(self.P['hello_msg'])
 
@@ -114,21 +138,62 @@ class ConnSecure(ConnInterface):
             raise ConnectionError(str(e))
 
 
+"""
+============== Server Secure =============
+connect to client securely
+base connection must be established before creating ConnSecureServer instance
+must call connect()
+"""
+class ConnSecureServer(ConnSecure):
+    def connect(self):
+        if self.connected:
+            self.log('Warning (connect): already connected')
+            return True
 
-f = open('log_conn.txt', 'a')
-conn_socket = ConnSocket('127.0.0.1', 65432, f)
-conn_secure = ConnSecure(conn_socket, f)
-conn_secure.connect()
-while True:
-    msg = input('Write Message Q[quit]: ')
-    if msg == 'Q':
-        conn_secure.disconnect()
-        break
-    conn_secure.send(msg)
-    print(conn_secure.receive())
+        # check lower connection
+        if not self.s.connected:
+            self.log('Error (connect): lower is not connected')
+            return False
 
+        try:
+            # set encryption setup
+            self.rsa = RSACipher.RSAPrivate()
+            self.aes = AESCipher.AESCipher()
 
-y = input('q: ')
-x = float(y)
-if y == 'yes':
-    pass
+            # set secure conn (raise an error if fails)
+            self.open_secure_connection()
+        except:
+            self.log("Error (connect): can't connect")
+            self.disconnect()
+            return False
+
+        self.connected = True
+        return True
+
+    def open_secure_connection(self):
+        try:
+            # receive hello msg
+            data = self.s.receive()
+            if not data:
+                raise ConnectionError('base connection ended unexpectedly')
+            if data != self.P['hello_msg']:
+                raise ConnectionError('first connection protocol message not fit')
+
+            # send RSA public key
+            self.s.send(self.rsa.export_public())
+
+            # receive encrypted symmetric key
+            data = self.s.receive()
+            if not data:
+                raise ConnectionError('base connection ended unexpectedly')
+            key = self.rsa.decrypt(data)
+            self.aes.set_key(key)
+
+            # send 'conn established' encrypted message
+            enc = self.aes.encrypt(self.P['secure_established'])
+            self.s.send(enc)
+
+        except Exception as e:
+            self.disconnect()
+            self.log('Error (open_secure_connection): ' + repr(e))
+            raise ConnectionError(str(e))
