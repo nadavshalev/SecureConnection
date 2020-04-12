@@ -1,5 +1,6 @@
 from Connection.ConnInterface import ConnInterface
 import socket
+import datetime
 
 """
 ============== Class Socket =============
@@ -101,8 +102,12 @@ can't call connect() - already connected
 when disconnect(): must exit and create new instance after server connect a new socket
 """
 class ConnSocketServer(ConnSocket):
-    def __init__(self, conn, log_file):
+    def __init__(self, conn, log_file, addr):
         ConnInterface.__init__(self, log_file)
         self.type = 'socket'
         self.s = conn
+        self.addr = addr
         self.connected = True
+
+    def log(self, msg):
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.addr) + '\t' + self.type + ':\t' + msg + '\n')
