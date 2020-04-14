@@ -1,6 +1,6 @@
 from Connection.ConnSecure import ConnSecureClient
 from Connection.ConnSocket import ConnSocketClient
-from Connection.ConnP2P import ConnP2PClient
+from Connection.ConnP2PClient import ConnP2PClient
 import json
 import threading
 
@@ -9,12 +9,13 @@ def receive_msg(conn_p2p):
     while True:
         try:
             msg = conn_p2p.receive()
+            if not msg:
+                print(f'exit receive thread')
+                exit(0)
+            print(f'{conn_p2p.conn_addr}: {msg}')
         except Exception as e:
-            # print(repr(e))
+            print(repr(e))
             exit(0)
-        if not msg:
-            exit(0)
-        print(f'{conn_p2p.conn_addr}: {msg}')
 
 
 f = open('./Connection/log_conn_client.txt', 'a')
@@ -46,5 +47,5 @@ while True:
     try:
         conn_p2p.send(msg)
     except Exception as e:
-        # print(repr(e))
+        print(repr(e))
         exit(0)

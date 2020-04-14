@@ -21,6 +21,9 @@ class ConnSocket(ConnInterface):
         raise NotImplementedError
 
     def disconnect(self):
+        if not self.connected:
+            return
+
         try:
             self.s.close()
         except Exception as e:

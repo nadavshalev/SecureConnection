@@ -32,6 +32,8 @@ class ConnSecure(ConnInterface):
         raise NotImplementedError
 
     def disconnect(self):
+        if not self.connected:
+            return
 
         if self.s.connected:
             # send close request (should not fail)
@@ -49,7 +51,7 @@ class ConnSecure(ConnInterface):
         self.log('Success (disconnect)')
 
     def send(self, msg, hard_fail=False):
-        if not self.connected:
+        if not self.connected or not self.s.connected:
             self.log('Error (send): not connected')
             raise ConnectionError('not connected')
         try:
@@ -62,15 +64,24 @@ class ConnSecure(ConnInterface):
             raise e
 
     def receive(self):
-        if not self.connected:
+        if not self.connected or not self.s.connected:
             self.log('Error (receive): not connected')
             raise ConnectionError('not connected')
 
         try:
             data = self.s.receive()
+
+            # case lower connection ended
             if not data:
                 raise ConnectionError('base connection ended unexpectedly')
+
+            # case while (BLOCKED) connection ended
+            if not self.connected:
+                self.log('State (receive): connection already closed')
+                return None
+
             dec = self.aes.decrypt(data)
+
         except Exception as e:
             self.disconnect()
             self.log('Error (receive): ' + repr(e))

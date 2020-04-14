@@ -1,7 +1,7 @@
 import socket
 from Connection.ConnSecure import ConnSecureServer
 from Connection.ConnSocket import ConnSocketServer
-from Connection.ConnP2P import ConnP2PServer
+from Connection.ConnP2PServer import ConnP2PServer
 import socket
 import threading
 import json
@@ -29,9 +29,6 @@ class ThreadedServer:
 	def proccess_client(self, conn, addr):
 		obj_sock = ConnSocketServer(conn, f, addr)
 		obj_secure = ConnSecureServer(obj_sock, f)
-		if not obj_secure.connect():
-			print('Error: cant connect secure server')
-			return
 		obj_p2p = ConnP2PServer(obj_secure, self.conn_dict, f)
 
 		obj_p2p.start()
