@@ -31,7 +31,7 @@ class ConnInterface(ABC):
     def send(self, msg):
         """
         send all data reliably
-        :raise: ConnectionError
+        :raise: ConnectionError (disconnect before)
         """
         pass
 
@@ -39,7 +39,7 @@ class ConnInterface(ABC):
     def receive(self) -> str:
         """
         get message
-        :raise: ConnectionError
+        :raise: ConnectionError (disconnect before)
         :return: received message[str] or None if Closed
         """
         pass

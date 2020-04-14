@@ -22,9 +22,9 @@ class ConnSecure(ConnInterface):
         ConnInterface.__init__(self, log_file)
         self.s = base_conn
         if (type(base_conn) == ConnSocketClient) or (type(base_conn) == ConnSocketServer):
-            self.type = 'secure_server'
+            self.type = 'secure_socket'
         else:
-            self.type = 'secure'
+            self.type = 'secure_client'
         self.rsa = None
         self.aes = None
 
@@ -32,18 +32,21 @@ class ConnSecure(ConnInterface):
         raise NotImplementedError
 
     def disconnect(self):
-        # send close request (should not fail)
-        try:
-            self.send(self.P["request_close_conn"], hard_fail=True)
-        except:
-            pass
-        # disconnect base connection
-        self.s.disconnect()
+
+        if self.s.connected:
+            # send close request (should not fail)
+            try:
+                self.send(self.P["request_close_conn"], hard_fail=True)
+            except Exception as e:
+                self.log('Warning (disconnect): ' + repr(e))
+            # disconnect base connection
+            self.s.disconnect()
         # clear data
         self.aes = None
         self.rsa = None
         # set state to disconnected
         self.connected = False
+        self.log('Success (disconnect)')
 
     def send(self, msg, hard_fail=False):
         if not self.connected:
@@ -56,7 +59,7 @@ class ConnSecure(ConnInterface):
             if not hard_fail:
                 self.disconnect()
             self.log('Error (send): ' + repr(e))
-            raise ConnectionError(str(e))
+            raise e
 
     def receive(self):
         if not self.connected:
@@ -71,8 +74,9 @@ class ConnSecure(ConnInterface):
         except Exception as e:
             self.disconnect()
             self.log('Error (receive): ' + repr(e))
-            raise ConnectionError(str(e))
+            raise e
 
+        # received close connection request
         if dec == self.P['request_close_conn']:
             self.disconnect()
             self.log('State (receive): connection ended by host')
@@ -104,8 +108,8 @@ class ConnSecureClient(ConnSecure):
 
             # set secure conn (raise an error if fails)
             self.open_secure_connection()
-        except:
-            self.log("Error (connect): can't connect")
+        except Exception as e:
+            self.log("Error (connect): can't connect - " + repr(e))
             self.disconnect()
             return False
 
@@ -135,7 +139,7 @@ class ConnSecureClient(ConnSecure):
         except Exception as e:
             self.disconnect()
             self.log('Error (open_secure_connection): ' + repr(e))
-            raise ConnectionError(str(e))
+            raise e
 
 
 """
@@ -162,8 +166,8 @@ class ConnSecureServer(ConnSecure):
 
             # set secure conn (raise an error if fails)
             self.open_secure_connection()
-        except:
-            self.log("Error (connect): can't connect")
+        except Exception as e:
+            self.log("Error (connect): can't connect - " + repr(e))
             self.disconnect()
             return False
 
@@ -196,4 +200,4 @@ class ConnSecureServer(ConnSecure):
         except Exception as e:
             self.disconnect()
             self.log('Error (open_secure_connection): ' + repr(e))
-            raise ConnectionError(str(e))
+            raise e

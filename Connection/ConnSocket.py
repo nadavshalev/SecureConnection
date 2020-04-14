@@ -21,13 +21,13 @@ class ConnSocket(ConnInterface):
         raise NotImplementedError
 
     def disconnect(self):
-        if self.connected:
-            try:
-                self.s.close()
-            except Exception as e:
-                self.log('Warning (disconnect): ' + repr(e))
+        try:
+            self.s.close()
+        except Exception as e:
+            self.log('Warning (disconnect): ' + repr(e))
         self.s = None
         self.connected = False
+        self.log('Success (disconnect)')
 
     def send(self, msg):
         if not self.connected:
@@ -43,7 +43,7 @@ class ConnSocket(ConnInterface):
         except Exception as e:
             self.disconnect()
             self.log('Error (send): ' + repr(e))
-            raise ConnectionError(str(e))
+            raise e
 
     def receive(self):
         if not self.connected:
@@ -55,7 +55,7 @@ class ConnSocket(ConnInterface):
         except Exception as e:
             self.disconnect()
             self.log('Error (receive): ' + repr(e))
-            raise ConnectionError(str(e))
+            raise e
 
         if not data:
             self.disconnect()
@@ -86,8 +86,8 @@ class ConnSocketClient(ConnSocket):
         try:
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.s.connect((self.ip, self.port))
-        except:
-            self.log("Error (connect): can't connect socket")
+        except Exception as e:
+            self.log("Error (connect): can't connect socket - " + repr(e))
             self.disconnect()
             return False
 

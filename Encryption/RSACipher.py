@@ -4,6 +4,10 @@ from Crypto.Cipher import PKCS1_OAEP
 
 
 class RSAPrivate:
+    """
+    Create Private RSA key - can both encrypt and decrypt
+    Use in server side (ConnSecure)
+    """
     def __init__(self, key_size=3072):
         random_generator = Random.new().read
         self.private_key = RSA.generate(key_size, random_generator)
@@ -25,7 +29,10 @@ class RSAPrivate:
 
 
 class RSAPublic:
-
+    """
+    Only load RSA public key - can't decrypt
+    Use in client side (ConnSecure)
+    """
     def __init__(self):
         self.public_key = None
         self.encryptor = None
@@ -36,17 +43,3 @@ class RSAPublic:
 
     def encrypt(self, msg):
         return self.encryptor.encrypt(msg)
-
-
-
-# rsa_private = RSAPrivate()
-# pubKey = rsa_private.export_public()
-#
-# rsa_public = RSAPublic(pubKey)
-#
-# enc = rsa_public.encrypt(b'bla bla bla hello world')
-#
-# msg = rsa_private.decrypt(enc)
-#
-# print(msg)
-

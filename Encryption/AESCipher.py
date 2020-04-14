@@ -6,10 +6,17 @@ from Crypto.Cipher import AES
 import secrets
 
 class AESCipher:
+    """
+    Symmetric AES encryption for data transfer part of ConnSecure protocol
+    """
 
+    # key length (AES 256)
     BS = 32
 
     def __init__(self, key=None):
+        """
+        :param key: None: must call gen_key() before use. Not None: load key from outside
+        """
         self.key = None
         if key is not None:
             self.set_key(key)
@@ -20,6 +27,11 @@ class AESCipher:
         self.key = key
 
     def encrypt(self, raw):
+        """
+        Encrypt the data and set HMAC after encryption
+        :param raw: data for encryption
+        :return: encrypted message
+        """
         raw = self.pad(raw)
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
@@ -29,6 +41,11 @@ class AESCipher:
         return base64.b64encode(enc_msg+hmac)
 
     def decrypt(self, enc):
+        """
+        Decrypt data and check HMAC
+        :param enc: data to be decrypted
+        :return: decrypted message
+        """
         enc = base64.b64decode(enc)
         iv = enc[:16]
         msg_enc = enc[16:-32]
@@ -53,38 +70,10 @@ class AESCipher:
         return bytes(s + (self.BS - len(s) % self.BS) * chr(self.BS - len(s) % self.BS), 'utf-8')
 
     def gen_key(self):
+        """
+        Generate random key using secrets module
+        :return: key
+        """
         key = secrets.token_urlsafe(self.BS)
         self.key = hashlib.sha256(key.encode()).digest()
 
-
-# aes1 = AESCipher()
-# aes1.gen_key()
-# aes2 = AESCipher()
-# aes2.gen_key()
-#
-# enc = aes1.encrypt('Hello World')
-# print(enc)
-# print(len(enc))
-# msg = aes2.decrypt(enc)
-# print(msg)
-# print(len(msg))
-# print(b'KEY: ' + aes1.key)
-# print(len(aes1.key))
-# msg = 'OCB is by far the best mode, as it allows encryption and authentication in a single pass. However there are ' \
-#       'patents on it in USA. The only thing '
-#
-# enc = aes1.encrypt(msg)
-# hmac1 = aes1.hmac_sha256(enc)
-#
-# encTxt = base64.b64decode(enc)
-# print(b'ENC: ' + encTxt[:16])
-# print()
-# print(b'HMAC: ' + hmac1)
-#
-# aes2 = AESCipher(aes1.key)
-#
-# hmac2 = aes2.hmac_sha256(enc)
-# dec = aes2.decrypt(enc)
-# print('DEC: ' + dec)
-#
-# print(hmac1 == hmac2)

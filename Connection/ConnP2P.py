@@ -39,7 +39,7 @@ class ConnP2P(ConnInterface):
             if not hard_fail:
                 self.disconnect()
             self.log('Error (send): ' + repr(e))
-            raise ConnectionError(str(e))
+            raise e
 
     def receive(self):
         if not self.connected:
@@ -54,14 +54,15 @@ class ConnP2P(ConnInterface):
             # decode json
             data, to_addr, from_addr = self.decode(data_str)
 
-            return data, to_addr, from_addr
-
         except Exception as e:
             self.disconnect()
             self.log('Error (receive): ' + repr(e))
-            raise ConnectionError(str(e))
+            raise e
+
+        return data, to_addr, from_addr
 
     def validate_receive(self, msg, to_, from_):
+
         # case 'my_name' is not the message address
         if self.my_addr != to_:
             self.log('Error (validate_receive): message received in wrong address')
@@ -95,15 +96,6 @@ class ConnP2P(ConnInterface):
 
 class ConnP2PClient(ConnP2P):
 
-    P = {
-        'request_new_connection': 'request_connection_to_address',
-        'wait_for_connection': 'wait_for_connection_from_anyone',
-        'accept_connection': 'accept_connection_to_address',
-        'set_connection': 'set_connection_from_address',
-        'request_close_connection': 'request_close_connection_to_address',
-        'closed_connection': 'closed_connection_from_address'
-    }
-
     def __init__(self, base_conn, my_addr, log_file):
         ConnP2P.__init__(self, base_conn, my_addr, log_file)
 
@@ -115,7 +107,6 @@ class ConnP2PClient(ConnP2P):
         # set lower connection
         if not self.s.connect():
             return False
-
 
         try:
             self.connected = True
@@ -138,20 +129,22 @@ class ConnP2PClient(ConnP2P):
                 if not self.set_wait_connection():
                     return False
 
-        except:
-            self.log("Error (connect): can't connect")
+        except Exception as e:
+            self.log("Error (connect): can't connect - " + repr(e))
             self.disconnect()
             return False
 
         return True
 
     def disconnect(self):
-        # send close request (should not fail)
-        try:
-            self.send(self.P['request_close_connection'], hard_fail=True)
-        except:
-            pass
+        if self.s.connected:
+            # send close request (should not fail)
+            try:
+                self.send(self.P['request_close_connection'], hard_fail=True)
+            except:
+                pass
         self.clear_connection()
+        self.log('Success (disconnect)')
 
     def set_new_connection(self):
         # send request for new connection
@@ -201,7 +194,8 @@ class ConnP2PClient(ConnP2P):
 
     def clear_connection(self):
         # disconnect base connection
-        self.s.disconnect()
+        if self.s.connected:
+            self.s.disconnect()
         # clear data
         self.conn_addr = None
         # set state to disconnected
@@ -211,15 +205,17 @@ class ConnP2PClient(ConnP2P):
 class ConnP2PServer(ConnP2P):
 
     def __init__(self, base_conn, conn_dict, log_file):
+        # set connection (my_addr = None)
         ConnP2P.__init__(self, base_conn, None, log_file)
+        # contain all waiting connections
         self.conn_dict = conn_dict
         self.conn_obj = None
 
     def start(self):
 
-        # check lower connection
-        if not self.s.connected:
-            self.log('Error (start): lower is not connected')
+        # set lower connection
+        if not self.s.connect():
+            self.log('Error (start): lower failed to connect')
             return False
 
         try:
@@ -239,15 +235,17 @@ class ConnP2PServer(ConnP2P):
 
                 # set other address
                 self.conn_addr = conn_addr
-                # set as param and delete from dict
+
+                # set other P2Pobj as param and delete from dict
                 self.conn_obj = self.conn_dict[conn_addr]
                 del self.conn_dict[conn_addr]
-                # set own address in other
+
+                # set own address in conn_obj
                 self.conn_obj.conn_addr = self.my_addr
 
+                # set accept_connection message to the users
                 msg = self.encode(self.P['accept_connection'], to_=self.my_addr, from_=self.conn_addr)
                 self.send(msg)
-
                 msg = self.encode(self.P['accept_connection'], to_=self.conn_addr, from_=self.my_addr)
                 self.conn_obj.send(msg)
 
@@ -269,7 +267,7 @@ class ConnP2PServer(ConnP2P):
                 return False
 
         except Exception as e:
-            self.log("Error (connect): can't connect: " + repr(e))
+            self.log("Error (connect): can't connect - " + repr(e))
             self.disconnect()
             return False
 
@@ -291,12 +289,14 @@ class ConnP2PServer(ConnP2P):
             other.send(msg)
 
     def disconnect(self):
-        try:
-            self.send(self.P['closed_connection'], hard_fail=True)
-        except:
-            pass
-        try:
-            self.conn_obj.send(self.P['closed_connection'], hard_fail=True)
-        except:
-            pass
-        self.s.disconnect()
+        if self.s.connected:
+            try:
+                self.send(self.P['closed_connection'], hard_fail=True)
+            except:
+                pass
+            try:
+                self.conn_obj.send(self.P['closed_connection'], hard_fail=True)
+            except:
+                pass
+            self.s.disconnect()
+        self.log('Success (disconnect)')
