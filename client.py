@@ -1,35 +1,50 @@
 from Connection.ConnSecure import ConnSecureClient
 from Connection.ConnSocket import ConnSocketClient
+from Connection.ConnP2P import ConnP2PClient
 import json
 import threading
 
 
-def receive_msg(sc):
-    print('inside!!!!!')
+def receive_msg(conn_p2p):
     while True:
-        data = sc.receive()
-        if not data:
+        try:
+            msg = conn_p2p.receive()
+        except Exception as e:
+            # print(repr(e))
             exit(0)
-        print(data)
+        if not msg:
+            exit(0)
+        print(f'{conn_p2p.conn_addr}: {msg}')
 
 
 f = open('./Connection/log_conn_client.txt', 'a')
 conn_socket = ConnSocketClient('127.0.0.1', 65432, f)
 conn_secure = ConnSecureClient(conn_socket, f)
-conn_secure.connect()
 
-threading.Thread(target=receive_msg, args=(conn_secure,)).start()
+my_addr = input('my address: ')
 
-addr = input('Write Address: ')
+conn_p2p = ConnP2PClient(conn_secure, my_addr, f)
+
+other_addr = input('connect to: ')
+if other_addr:
+    success = conn_p2p.connect(other_addr)
+else:
+    success = conn_p2p.connect()
+
+if not success:
+    print('cant connect. exit')
+    exit()
+
+threading.Thread(target=receive_msg, args=(conn_p2p,)).start()
+
+print('======== start ==========')
 while True:
-    msg_str = input('Write Message Q[quit]: ')
-    if msg_str == 'Q':
-        conn_secure.disconnect()
+    msg = input('')
+    if msg == 'Q':
+        conn_p2p.disconnect()
         exit(0)
-
-    msg = {
-        "to": addr,
-        "msg": msg_str
-    }
-    json_msg = json.dumps(msg)
-    conn_secure.send(json_msg)
+    try:
+        conn_p2p.send(msg)
+    except Exception as e:
+        # print(repr(e))
+        exit(0)
