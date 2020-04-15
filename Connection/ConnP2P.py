@@ -1,3 +1,5 @@
+import datetime
+
 from Connection.ConnInterface import ConnInterface
 import json
 import threading
@@ -11,7 +13,8 @@ class ConnP2P(ConnInterface):
         'accept_connection': 'accept_connection_to_address',
         'set_connection': 'set_connection_from_address',
         'request_close_connection': 'request_close_connection_to_address',
-        'closed_connection': 'closed_connection_from_address'
+        'closed_connection': 'closed_connection_from_address',
+        'closed_connection_accepted': 'closed_connection_accepted_by_user'
     }
 
     def __init__(self, base_conn, my_addr, log_file):
@@ -97,3 +100,6 @@ class ConnP2P(ConnInterface):
         to_ = addr['to']
         from_ = addr['from']
         return msg_data, to_, from_
+
+    def log(self, msg):
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.my_addr) + '\t\t\t' + self.type + ':\t' + msg + '\n')

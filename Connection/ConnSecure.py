@@ -1,3 +1,5 @@
+import datetime
+
 from Connection.ConnInterface import ConnInterface
 from Connection.ConnSocket import ConnSocketClient, ConnSocketServer
 from Encryption import AESCipher, RSACipher
@@ -21,10 +23,7 @@ class ConnSecure(ConnInterface):
     def __init__(self, base_conn, log_file):
         ConnInterface.__init__(self, log_file)
         self.s = base_conn
-        if (type(base_conn) == ConnSocketClient) or (type(base_conn) == ConnSocketServer):
-            self.type = 'secure_socket'
-        else:
-            self.type = 'secure_client'
+        self.type = 'secure'
         self.rsa = None
         self.aes = None
 
@@ -95,6 +94,9 @@ class ConnSecure(ConnInterface):
 
         return dec
 
+    def log(self, msg):
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.s.getsockname()) + '\t' + self.type + ':\t' + msg + '\n')
+
 
 """
 ============== Client Secure =============
@@ -125,6 +127,7 @@ class ConnSecureClient(ConnSecure):
             return False
 
         self.connected = True
+        self.log('Success (connect)')
         return True
 
     def open_secure_connection(self):
@@ -183,6 +186,7 @@ class ConnSecureServer(ConnSecure):
             return False
 
         self.connected = True
+        self.log('Success (connect)')
         return True
 
     def open_secure_connection(self):

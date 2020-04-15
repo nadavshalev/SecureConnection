@@ -67,6 +67,12 @@ class ConnSocket(ConnInterface):
 
         return data
 
+    def getsockname(self):
+        try:
+            return self.s.getsockname()
+        except:
+            return ('0.0.0.0', '00000')
+
 
 """
 ============== Client Socket =============
@@ -95,8 +101,11 @@ class ConnSocketClient(ConnSocket):
             return False
 
         self.connected = True
+        self.log('Success (connect)')
         return True
 
+    def log(self, msg):
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.getsockname()) + '\t' + self.type + ':\t' + msg + '\n')
 
 """
 ============== Server Socket =============

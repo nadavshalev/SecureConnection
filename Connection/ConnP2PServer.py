@@ -44,6 +44,7 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
 
                 # set own address in conn_obj
                 self.conn_obj.conn_addr = self.my_addr
+                self.conn_obj.conn_obj = self
 
                 # set accept_connection message to the users
                 msg = self.encode(self.P['accept_connection'], to_=self.my_addr, from_=self.conn_addr)
@@ -76,40 +77,45 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
         return True
 
     def run(self, other):
+        self.log('Success (run)')
         while True:
             data, to_, from_ = self.receive()
+
             if not self.connected:
                 break
 
             if not self.validate_receive(data, from_, to_):
+                self.log('Error (run): validation failed')
+                self.disconnect()
                 break
 
             # disconnected
             if data == self.P['request_close_connection']:
-                self.disconnect()
                 self.log('State (run): connection ended by user')
+                self.disconnect()
                 break
 
             msg = other.encode(data, to_=other.my_addr, from_=self.my_addr)
             other.send(msg)
-        print(f'exit run thread: {self.my_addr}')
+
+        print(f'exit run() thread: {self.my_addr}')
 
     def disconnect(self):
         if not self.connected:
             return
 
-        if self.s.connected:
-            try:
+        try:
+            # try send close request and disconnect
+            if self.s.connected:
                 msg = self.encode(self.P['closed_connection'], to_=self.my_addr, from_=self.conn_addr)
                 self.send(msg, hard_fail=True)
-            except:
-                pass
-            try:
-                msg = self.encode(self.P['closed_connection'], to_=self.conn_addr, from_=self.my_addr)
-                self.conn_obj.send(msg, hard_fail=True)
-            except:
-                pass
-            self.s.disconnect()
+                self.s.disconnect()
+        except:
+            pass
 
         self.connected = False
+        # if still connected - disconnect from pair connection
+        if self.conn_obj and self.conn_obj.connected:
+            self.conn_obj.disconnect()
+
         self.log('Success (disconnect)')

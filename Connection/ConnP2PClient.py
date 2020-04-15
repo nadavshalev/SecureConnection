@@ -41,6 +41,7 @@ class ConnP2PClient(ConnP2P):
             self.disconnect()
             return False
 
+        self.log('Success (connect)')
         return True
 
     def disconnect(self):
@@ -96,8 +97,9 @@ class ConnP2PClient(ConnP2P):
             return None
 
         if data == self.P['closed_connection']:
+            # self.send(self.P['closed_connection_accepted'])
             self.clear_connection()
-            self.log('State (run): connection ended by other')
+            self.log('State (receive): connection ended by other')
             return None
 
         if not self.validate_receive(data, to_, from_):
