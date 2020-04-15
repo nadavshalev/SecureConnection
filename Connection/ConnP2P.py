@@ -1,4 +1,5 @@
 import datetime
+import base64
 
 from Connection.ConnInterface import ConnInterface
 import json
@@ -83,12 +84,16 @@ class ConnP2P(ConnInterface):
         return True
 
     def encode(self, msg, to_, from_):
+        type_ = type(msg)
+        if type_ == bytes:
+            msg = base64.b64encode(msg).decode()
         d = {
             'data': msg,
             'addr': {
                 'to': to_,
                 'from': from_
-            }
+            },
+            'type': str(type_)
         }
         return json.dumps(d)
 
@@ -96,10 +101,16 @@ class ConnP2P(ConnInterface):
         print(data)
         msg = json.loads(data)
         addr = msg['addr']
-        msg_data = msg['data']
+        if msg['type'] == "<class 'bytes'>":
+            msg_data = base64.b64decode(msg['data'].encode())
+        else:
+            msg_data = msg['data']
         to_ = addr['to']
         from_ = addr['from']
         return msg_data, to_, from_
 
+    def get_addr(self):
+        return self.my_addr
+
     def log(self, msg):
-        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.my_addr) + '\t\t\t' + self.type + ':\t' + msg + '\n')
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t\t\t' + self.type + ':\t' + msg + '\n')

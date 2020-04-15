@@ -3,10 +3,11 @@ from Connection.ConnP2P import ConnP2P
 
 class ConnP2PClient(ConnP2P):
 
-    def __init__(self, base_conn, my_addr, log_file):
+    def __init__(self, base_conn, my_addr, log_file, conn_addr=None):
         ConnP2P.__init__(self, base_conn, my_addr, log_file)
+        self.conn_addr = conn_addr
 
-    def connect(self, conn_addr=None):
+    def connect(self):
         if self.connected:
             self.log('Warning (connect): already connected')
             return True
@@ -19,15 +20,8 @@ class ConnP2PClient(ConnP2P):
             self.connected = True
 
             # try to connect to address
-            if conn_addr:
-                # case already connected
-                if self.conn_addr:
-                    self.log('Error (connect): already connected to address')
-                    self.disconnect()
-                    return False
+            if self.conn_addr:
 
-                # send request to server
-                self.conn_addr = conn_addr
                 # set connection (BLOCKING) raise error if fails
                 if not self.set_new_connection():
                     return False

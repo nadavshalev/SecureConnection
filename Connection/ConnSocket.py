@@ -37,6 +37,9 @@ class ConnSocket(ConnInterface):
             self.log('Error (send): not connected')
             raise ConnectionError('not connected')
         try:
+            if type(msg) == str:
+                msg = msg.encode()
+
             total_sent = 0
             while total_sent < len(msg):
                 sent = self.s.send(msg[total_sent:])
@@ -67,7 +70,7 @@ class ConnSocket(ConnInterface):
 
         return data
 
-    def getsockname(self):
+    def get_addr(self):
         try:
             return self.s.getsockname()
         except:
@@ -105,7 +108,7 @@ class ConnSocketClient(ConnSocket):
         return True
 
     def log(self, msg):
-        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.getsockname()) + '\t' + self.type + ':\t' + msg + '\n')
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t' + self.type + ':\t' + msg + '\n')
 
 """
 ============== Server Socket =============

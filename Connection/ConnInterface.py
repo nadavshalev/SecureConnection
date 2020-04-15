@@ -44,5 +44,11 @@ class ConnInterface(ABC):
         """
         pass
 
+    def get_addr(self) -> str:
+        """
+        :return: address in current layer
+        """
+        pass
+
     def log(self, msg):
         self.log_file.write(str(datetime.datetime.now()) + '\t' + self.type + ':\t' + msg + '\n')
