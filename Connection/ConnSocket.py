@@ -10,7 +10,7 @@ global Implementations:
     receive()
 """
 class ConnSocket(ConnInterface):
-    PACK_SIZE = 1024
+    PACK_SIZE = 4096
 
     def __init__(self, log_file):
         ConnInterface.__init__(self, log_file)
@@ -108,7 +108,7 @@ class ConnSocketClient(ConnSocket):
         return True
 
     def log(self, msg):
-        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t' + self.type + ':\t' + msg + '\n')
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t' + self.type + ':\t\t' + msg + '\n')
 
 """
 ============== Server Socket =============
@@ -125,4 +125,4 @@ class ConnSocketServer(ConnSocket):
         self.connected = True
 
     def log(self, msg):
-        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.addr) + '\t' + self.type + ':\t' + msg + '\n')
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.addr) + '\t' + self.type + ':\t\t' + msg + '\n')

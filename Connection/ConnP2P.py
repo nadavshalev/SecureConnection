@@ -98,7 +98,6 @@ class ConnP2P(ConnInterface):
         return json.dumps(d)
 
     def decode(self, data):
-        print(data)
         msg = json.loads(data)
         addr = msg['addr']
         if msg['type'] == "<class 'bytes'>":
@@ -107,10 +106,11 @@ class ConnP2P(ConnInterface):
             msg_data = msg['data']
         to_ = addr['to']
         from_ = addr['from']
+        print(msg_data)
         return msg_data, to_, from_
 
     def get_addr(self):
         return self.my_addr
 
     def log(self, msg):
-        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t\t\t' + self.type + ':\t' + msg + '\n')
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t\t\t' + self.type + ':\t\t' + msg + '\n')

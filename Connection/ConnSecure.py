@@ -23,7 +23,10 @@ class ConnSecure(ConnInterface):
     def __init__(self, base_conn, log_file):
         ConnInterface.__init__(self, log_file)
         self.s = base_conn
-        self.type = 'secure'
+        if type(base_conn) == ConnSocketClient or type(base_conn) == ConnSocketServer:
+            self.type = 'sec_sock'
+        else:
+            self.type = 'sec_user'
         self.rsa = None
         self.aes = None
 
@@ -72,7 +75,11 @@ class ConnSecure(ConnInterface):
 
             # case lower connection ended
             if not data:
-                raise ConnectionError('base connection ended unexpectedly')
+                if self.connected:
+                    raise ConnectionError('base connection ended unexpectedly')
+                else:
+                    self.log('State (receive): connection already closed')
+                    return None
 
             # case while (BLOCKED) connection ended
             if not self.connected:
@@ -98,7 +105,10 @@ class ConnSecure(ConnInterface):
         return self.s.get_addr()
 
     def log(self, msg):
-        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t' + self.type + ':\t' + msg + '\n')
+        addt = '\t'
+        if self.type == 'sec_user':
+            addt = '\t\t\t'
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + addt + self.type + ':\t' + msg + '\n')
 
     def set_connection(self, side):
         if side == 'client':
