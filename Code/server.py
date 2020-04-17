@@ -1,10 +1,6 @@
-import socket
-from Connection.ConnSecure import ConnSecureServer
-from Connection.ConnSocket import ConnSocketServer
-from Connection.ConnP2PServer import ConnP2PServer
+from Connection import ConnSecureServer, ConnSocketServer, ConnP2PServer
 import socket
 import threading
-import json
 
 
 class ThreadedServer:
@@ -22,8 +18,8 @@ class ThreadedServer:
 		self.sock.listen(self.LISTEN_QUEUE)
 		while True:
 			conn, addr = self.sock.accept()
-			print('Connected by', addr)
-			conn.settimeout(self.CLIENT_TIMEOUT)
+			print(f'{conn.getsockname()} Connected by {addr}')
+			# conn.settimeout(self.CLIENT_TIMEOUT)
 			threading.Thread(target=self.proccess_client, args=(conn, addr)).start()
 
 	def proccess_client(self, conn, addr):
@@ -39,7 +35,7 @@ class ThreadedServer:
 HOST = '127.0.0.1'
 PORT = 65432
 
-f = open('./Connection/log_conn_server.txt', 'a')
+f = open('./log_server.txt', 'a')
 
 server = ThreadedServer(HOST, PORT)
 server.listen()

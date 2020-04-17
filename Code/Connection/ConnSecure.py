@@ -1,9 +1,7 @@
 import datetime
 
-from Connection.ConnInterface import ConnInterface
-from Connection.ConnSocket import ConnSocketClient, ConnSocketServer
-from Encryption import AESCipher, RSACipher
-
+from Connection import ConnInterface, ConnSocketClient, ConnSocketServer
+from Encryption import AESCipher, RSAPrivate, RSAPublic
 
 """
 ============== Class Secure =============
@@ -175,8 +173,8 @@ class ConnSecureClient(ConnSecure):
 
         try:
             # set encryption setup
-            self.rsa = RSACipher.RSAPublic()
-            self.aes = AESCipher.AESCipher()
+            self.rsa = RSAPublic()
+            self.aes = AESCipher()
             self.aes.gen_key()
 
             # set secure conn (raise an error if fails)
@@ -209,8 +207,8 @@ class ConnSecureServer(ConnSecure):
 
         try:
             # set encryption setup
-            self.rsa = RSACipher.RSAPrivate()
-            self.aes = AESCipher.AESCipher()
+            self.rsa = RSAPrivate()
+            self.aes = AESCipher()
 
             # set secure conn (raise an error if fails)
             self.set_connection('server')
@@ -237,8 +235,8 @@ class ConnSecureClientAccept(ConnSecure):
 
         try:
             # set encryption setup
-            self.rsa = RSACipher.RSAPrivate()
-            self.aes = AESCipher.AESCipher()
+            self.rsa = RSAPrivate()
+            self.aes = AESCipher()
 
             # set secure conn (raise an error if fails)
             self.set_connection('server')

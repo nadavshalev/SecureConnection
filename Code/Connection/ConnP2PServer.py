@@ -1,7 +1,7 @@
 import threading
 from abc import ABCMeta
 
-from Connection.ConnP2P import ConnP2P
+from Connection import ConnP2P
 
 
 class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
@@ -79,24 +79,30 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
     def run(self, other):
         self.log('Success (run)')
         while True:
-            data, to_, from_ = self.receive()
+            try:
+                data, to_, from_ = self.receive()
 
-            if not self.connected:
-                break
+                if not self.connected:
+                    break
 
-            if not self.validate_receive(data, from_, to_):
-                self.log('Error (run): validation failed')
+                if not self.validate_receive(data, from_, to_):
+                    self.log('Error (run): validation failed')
+                    self.disconnect()
+                    break
+
+                # disconnected
+                if data == self.P['request_close_connection']:
+                    self.log('State (run): connection ended by user')
+                    self.disconnect()
+                    break
+
+                msg = other.encode(data, to_=other.my_addr, from_=self.my_addr)
+                other.send(msg)
+            except Exception as e:
+                self.log("Error (run): " + repr(e))
                 self.disconnect()
                 break
 
-            # disconnected
-            if data == self.P['request_close_connection']:
-                self.log('State (run): connection ended by user')
-                self.disconnect()
-                break
-
-            msg = other.encode(data, to_=other.my_addr, from_=self.my_addr)
-            other.send(msg)
 
         print(f'exit run() thread: {self.my_addr}')
 

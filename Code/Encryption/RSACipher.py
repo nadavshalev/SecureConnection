@@ -16,9 +16,13 @@ class RSAPrivate:
         self.encryptor = PKCS1_OAEP.new(self.public_key)
 
     def decrypt(self, enc):
+        if type(enc) == str:
+            enc = enc.encode()
         return self.decryptor.decrypt(enc)
 
     def encrypt(self, msg):
+        if type(msg) == bytes:
+            msg = msg.decode()
         return self.encryptor.encrypt(msg)
 
     def export_public(self):

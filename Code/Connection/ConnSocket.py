@@ -1,4 +1,4 @@
-from Connection.ConnInterface import ConnInterface
+from Connection import ConnInterface
 import socket
 import datetime
 

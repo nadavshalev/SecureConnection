@@ -32,6 +32,8 @@ class AESCipher:
         :param raw: data for encryption
         :return: encrypted message
         """
+        # if type(raw) == str:
+        #     raw = raw.encode()
         raw = self.pad(raw)
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
@@ -46,6 +48,8 @@ class AESCipher:
         :param enc: data to be decrypted
         :return: decrypted message
         """
+        if type(enc) == str:
+            enc = enc.encode()
         enc = base64.b64decode(enc)
         iv = enc[:16]
         msg_enc = enc[16:-32]

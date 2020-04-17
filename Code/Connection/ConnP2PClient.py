@@ -1,4 +1,4 @@
-from Connection.ConnP2P import ConnP2P
+from Connection import ConnP2P
 
 
 class ConnP2PClient(ConnP2P):

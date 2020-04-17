@@ -1,9 +1,8 @@
 import datetime
 import base64
 
-from Connection.ConnInterface import ConnInterface
+from Connection import ConnInterface
 import json
-import threading
 
 
 class ConnP2P(ConnInterface):
