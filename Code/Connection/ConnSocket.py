@@ -11,6 +11,7 @@ global Implementations:
 """
 class ConnSocket(ConnInterface):
     PACK_SIZE = 4096
+    HEADER_LEN = 5  # 2^(5*8)=2^40=Tara
 
     def __init__(self, log_file):
         ConnInterface.__init__(self, log_file)
@@ -37,8 +38,21 @@ class ConnSocket(ConnInterface):
             self.log('Error (send): not connected')
             raise ConnectionError('not connected')
         try:
+            # case msg is string
             if type(msg) == str:
                 msg = msg.encode()
+
+            # case msg is empty (will look like socket closed)
+            if msg == b'':
+                msg = b' '
+
+            # transmit msg length in HEADER_LEN first bytes
+            msg_size = len(msg)
+            if msg_size > 2 ** (8 * self.HEADER_LEN) - 1:
+                raise RuntimeError('message is too big for transmission')
+
+            header = self.create_header(msg_size)
+            msg = header + msg
 
             total_sent = 0
             while total_sent < len(msg):
@@ -57,24 +71,41 @@ class ConnSocket(ConnInterface):
             raise ConnectionError('not connected')
 
         try:
-            data = self.s.recv(self.PACK_SIZE)
+            header_data = self.s.recv(self.HEADER_LEN)
+            if not header_data:
+                self.disconnect()
+                self.log('State (receive): connection ended by host')
+                return None
+
+            msg_len = self.decode_header(header_data)
+
+            data = []
+            bytes_recd = 0
+            while bytes_recd < msg_len:
+                chunk = self.s.recv(min(msg_len - bytes_recd, self.PACK_SIZE))
+                if chunk == b'':
+                    raise RuntimeError("socket connection broken")
+                data.append(chunk)
+                bytes_recd = bytes_recd + len(chunk)
+
         except Exception as e:
             self.disconnect()
             self.log('Error (receive): ' + repr(e))
             raise e
 
-        if not data:
-            self.disconnect()
-            self.log('State (receive): connection ended by host')
-            return None
-
-        return data
+        return b''.join(data)
 
     def get_addr(self):
         try:
             return self.s.getsockname()
         except:
             return ('0.0.0.0', '00000')
+
+    def create_header(self, x: int) -> bytes:
+        return x.to_bytes(self.HEADER_LEN, 'big')
+
+    def decode_header(self, xbytes: bytes) -> int:
+        return int.from_bytes(xbytes, 'big')
 
 
 """

@@ -103,7 +103,6 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
                 self.disconnect()
                 break
 
-
         print(f'exit run() thread: {self.my_addr}')
 
     def disconnect(self):
