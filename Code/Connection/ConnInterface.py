@@ -28,7 +28,7 @@ class ConnInterface(ABC):
         pass
 
     @abstractmethod
-    def send(self, msg):
+    def send(self, msg: bytes):
         """
         send all data reliably
         :raise: ConnectionError (disconnect before)
@@ -36,7 +36,7 @@ class ConnInterface(ABC):
         pass
 
     @abstractmethod
-    def receive(self) -> str:
+    def receive(self) -> bytes:
         """
         get message
         :raise: ConnectionError (disconnect before)

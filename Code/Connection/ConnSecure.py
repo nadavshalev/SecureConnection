@@ -12,10 +12,10 @@ global Implementations:
 """
 class ConnSecure(ConnInterface):
     P = {
-        'hello_msg': 'Hello Server',
-        'secure_established': 'aes_is_set',
-        'request_close_conn': 'request_close_secure_connection',
-        'accept_close_conn': 'accept_close_secure_connection'
+        'hello_msg': b'Hello Server',
+        'secure_established': b'aes_is_set',
+        'request_close_conn': b'request_close_secure_connection',
+        'accept_close_conn': b'accept_close_secure_connection'
     }
 
     def __init__(self, base_conn, log_file):
@@ -27,6 +27,8 @@ class ConnSecure(ConnInterface):
             self.type = 'sec_user'
         self.rsa = None
         self.aes = None
+        self.rsv_num = 0
+        self.snd_num = 0
 
     def connect(self):
         raise NotImplementedError
@@ -50,7 +52,7 @@ class ConnSecure(ConnInterface):
         self.connected = False
         self.log('Success (disconnect)')
 
-    def send(self, msg, hard_fail=False):
+    def send(self, msg: bytes, hard_fail=False):
         if not self.connected or not self.s.connected:
             self.log('Error (send): not connected')
             raise ConnectionError('not connected')
@@ -63,7 +65,7 @@ class ConnSecure(ConnInterface):
             self.log('Error (send): ' + repr(e))
             raise e
 
-    def receive(self):
+    def receive(self) -> bytes:
         if not self.connected or not self.s.connected:
             self.log('Error (receive): not connected')
             raise ConnectionError('not connected')
@@ -134,9 +136,6 @@ class ConnSecure(ConnInterface):
             if not data:
                 raise ConnectionError('base connection ended unexpectedly')
 
-            # convert bytes => string
-            if type(data) == bytes:
-                data = data.decode()
             if data != self.P['hello_msg']:
                 raise ConnectionError('first connection protocol message not fit')
 

@@ -79,7 +79,7 @@ class ConnP2PClient(ConnP2P):
             return False
         return True
 
-    def send(self, msg, hard_fail=False):
+    def send(self, msg: bytes, hard_fail=False):
         msg = self.encode(msg, to_=self.conn_addr, from_=self.my_addr)
         ConnP2P.send(self, msg, hard_fail)
 

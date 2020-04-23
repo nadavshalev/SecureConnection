@@ -33,15 +33,11 @@ class ConnSocket(ConnInterface):
         self.connected = False
         self.log('Success (disconnect)')
 
-    def send(self, msg):
+    def send(self, msg: bytes):
         if not self.connected:
             self.log('Error (send): not connected')
             raise ConnectionError('not connected')
         try:
-            # case msg is string
-            if type(msg) == str:
-                msg = msg.encode()
-
             # case msg is empty (will look like socket closed)
             if msg == b'':
                 msg = b' '
@@ -65,14 +61,15 @@ class ConnSocket(ConnInterface):
             self.log('Error (send): ' + repr(e))
             raise e
 
-    def receive(self):
+    def receive(self) -> bytes:
         if not self.connected:
             self.log('Error (receive): not connected')
             raise ConnectionError('not connected')
 
         try:
+            print('rec111')
             header_data = self.s.recv(self.HEADER_LEN)
-            if not header_data:
+            if not header_data or not self.connected:
                 self.disconnect()
                 self.log('State (receive): connection ended by host')
                 return None

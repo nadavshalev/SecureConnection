@@ -8,14 +8,15 @@ import json
 class ConnP2P(ConnInterface):
 
     P = {
-        'request_new_connection': 'request_connection_to_address',
-        'wait_for_connection': 'wait_for_connection_from_anyone',
-        'accept_connection': 'accept_connection_to_address',
-        'set_connection': 'set_connection_from_address',
-        'request_close_connection': 'request_close_connection_to_address',
-        'closed_connection': 'closed_connection_from_address',
-        'closed_connection_accepted': 'closed_connection_accepted_by_user'
+        'request_new_connection': b'request_connection_to_address',
+        'wait_for_connection': b'wait_for_connection_from_anyone',
+        'accept_connection': b'accept_connection_to_address',
+        'set_connection': b'set_connection_from_address',
+        'request_close_connection': b'request_close_connection_to_address',
+        'closed_connection': b'closed_connection_from_address',
+        'closed_connection_accepted': b'closed_connection_accepted_by_user'
     }
+    ADDR_SIZE = 32
 
     def __init__(self, base_conn, my_addr, log_file):
         ConnInterface.__init__(self, log_file)
@@ -30,7 +31,7 @@ class ConnP2P(ConnInterface):
     def disconnect(self):
         raise NotImplementedError
 
-    def send(self, msg, hard_fail=False):
+    def send(self, msg: bytes, hard_fail=False):
         if not self.connected or not self.s.connected:
             self.log('Error (send): not connected')
             raise ConnectionError('not connected')
@@ -50,8 +51,8 @@ class ConnP2P(ConnInterface):
             raise ConnectionError('not connected')
 
         try:
-            data_str = self.s.receive()
-            if not data_str:
+            data = self.s.receive()
+            if not data:
                 if self.connected:
                     raise ConnectionError('base connection ended unexpectedly')
                 else:
@@ -59,14 +60,14 @@ class ConnP2P(ConnInterface):
                     return None, None, None
 
             # decode json
-            data, to_addr, from_addr = self.decode(data_str)
+            msg, to_addr, from_addr = self.decode(data)
 
         except Exception as e:
             self.disconnect()
             self.log('Error (receive): ' + repr(e))
             raise e
 
-        return data, to_addr, from_addr
+        return msg, to_addr, from_addr
 
     def validate_receive(self, msg, to_, from_):
 
@@ -82,31 +83,25 @@ class ConnP2P(ConnInterface):
 
         return True
 
-    def encode(self, msg, to_, from_):
-        type_ = type(msg)
-        if type_ == bytes:
-            msg = base64.b64encode(msg).decode()
-        d = {
-            'data': msg,
-            'addr': {
-                'to': to_,
-                'from': from_
-            },
-            'type': str(type_)
-        }
-        return json.dumps(d)
+    def encode(self, msg: bytes, to_: str, from_: str) -> bytes:
+        if not to_:
+            to_ = ''
+        if not from_:
+            from_ = ''
+        fmat = "{:<" + str(self.ADDR_SIZE) + "}"
+        bto_ = fmat.format(to_).encode()
+        bfrom_ = fmat.format(from_).encode()
+        return bto_ + bfrom_ + msg
 
-    def decode(self, data):
-        msg = json.loads(data)
-        addr = msg['addr']
-        if msg['type'] == "<class 'bytes'>":
-            msg_data = base64.b64decode(msg['data'].encode())
-        else:
-            msg_data = msg['data']
-        to_ = addr['to']
-        from_ = addr['from']
-        print(msg_data)
-        return msg_data, to_, from_
+    def decode(self, data: bytes):
+        to_ = data[:self.ADDR_SIZE].decode().strip()
+        from_ = data[self.ADDR_SIZE:2*self.ADDR_SIZE].decode().strip()
+        msg = data[2*self.ADDR_SIZE:]
+        if not to_:
+            to_ = None
+        if not from_:
+            from_ = None
+        return msg, to_, from_
 
     def get_addr(self):
         return self.my_addr

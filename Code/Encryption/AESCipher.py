@@ -32,8 +32,6 @@ class AESCipher:
         :param raw: data for encryption
         :return: encrypted message
         """
-        # if type(raw) == str:
-        #     raw = raw.encode()
         raw = self.pad(raw)
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
@@ -62,7 +60,7 @@ class AESCipher:
 
         # decode
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        return self.unpad(cipher.decrypt(msg_enc)).decode('utf8')
+        return self.unpad(cipher.decrypt(msg_enc))
 
     def hmac_sha256(self, msg):
         return hmac.new(self.key, msg, digestmod=hashlib.sha256).digest()
@@ -70,8 +68,8 @@ class AESCipher:
     def unpad(self, s):
         return s[0:-ord(s[-1:])]
 
-    def pad(self, s):
-        return bytes(s + (self.BS - len(s) % self.BS) * chr(self.BS - len(s) % self.BS), 'utf-8')
+    def pad(self, s: bytes):
+        return s + bytes((self.BS - len(s) % self.BS) * chr(self.BS - len(s) % self.BS), 'utf-8')
 
     def gen_key(self):
         """
