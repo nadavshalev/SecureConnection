@@ -67,12 +67,11 @@ class ConnSocket(ConnInterface):
             raise ConnectionError('not connected')
 
         try:
-            print('rec111')
             header_data = self.s.recv(self.HEADER_LEN)
             if not header_data or not self.connected:
                 self.disconnect()
                 self.log('State (receive): connection ended by host')
-                return None
+                return b''
 
             msg_len = self.decode_header(header_data)
 

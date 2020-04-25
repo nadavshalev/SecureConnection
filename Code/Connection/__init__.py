@@ -9,6 +9,4 @@ from Connection.ConnSocket import ConnSocket, ConnSocketServer, ConnSocketClient
 from Connection.ConnSecure import ConnSecure, ConnSecureServer, ConnSecureClient, ConnSecureClientAccept
 
 # User to user
-from Connection.ConnP2P import ConnP2P
-from Connection.ConnP2PClient import ConnP2PClient
-from Connection.ConnP2PServer import ConnP2PServer
+from Connection.P2P import ConnP2P, ConnP2PServer, ConnP2PClient

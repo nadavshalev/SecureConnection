@@ -8,7 +8,7 @@ class Client:
 	IP = '127.0.0.1'
 
 	DEFAULT_LOG_FILE = 'clientLog.log'
-	LOG_TYPE = 'w'
+	LOG_TYPE = 'a'
 
 	def __init__(self, address, password, log_file_name=None):
 		self.address = address

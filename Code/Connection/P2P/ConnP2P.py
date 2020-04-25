@@ -57,7 +57,7 @@ class ConnP2P(ConnInterface):
                     raise ConnectionError('base connection ended unexpectedly')
                 else:
                     self.log('State (receive): connection already closed')
-                    return None, None, None
+                    return b'', b'', b''
 
             # decode json
             msg, to_addr, from_addr = self.decode(data)
@@ -107,4 +107,4 @@ class ConnP2P(ConnInterface):
         return self.my_addr
 
     def log(self, msg):
-        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t\t\t' + self.type + ':\t\t' + msg + '\n')
+        self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t\t\t\t\t' + self.type + ':\t\t' + msg + '\n')

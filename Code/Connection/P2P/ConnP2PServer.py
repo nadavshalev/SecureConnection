@@ -1,7 +1,7 @@
 import threading
 from abc import ABCMeta
 
-from Connection import ConnP2P
+from Connection.P2P import ConnP2P
 
 
 class ConnP2PServer(ConnP2P, metaclass=ABCMeta):

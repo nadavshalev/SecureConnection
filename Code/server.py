@@ -41,7 +41,7 @@ else:
 
 PORT = 65432
 
-f = open('./log_server.txt', 'a')
+f = open('./serverLog.log', 'a')
 
 server = ThreadedServer(IP, PORT)
 server.listen()

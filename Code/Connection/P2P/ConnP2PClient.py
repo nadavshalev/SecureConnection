@@ -1,4 +1,4 @@
-from Connection import ConnP2P
+from Connection.P2P import ConnP2P
 
 
 class ConnP2PClient(ConnP2P):
@@ -83,18 +83,18 @@ class ConnP2PClient(ConnP2P):
         msg = self.encode(msg, to_=self.conn_addr, from_=self.my_addr)
         ConnP2P.send(self, msg, hard_fail)
 
-    def receive(self):
+    def receive(self) -> bytes:
         data, to_, from_ = ConnP2P.receive(self)
 
         # case connection already closed
         if not self.connected:
-            return None
+            return b''
 
         if data == self.P['closed_connection']:
             # self.send(self.P['closed_connection_accepted'])
             self.clear_connection()
             self.log('State (receive): connection ended by other')
-            return None
+            return b''
 
         if not self.validate_receive(data, to_, from_):
             raise ConnectionError('validation failed')

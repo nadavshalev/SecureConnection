@@ -1,4 +1,5 @@
 import datetime
+from time import sleep
 
 from Connection import ConnInterface, ConnSocketClient, ConnSocketServer
 from Encryption import AESCipher, RSAPrivate, RSAPublic
@@ -17,6 +18,7 @@ class ConnSecure(ConnInterface):
         'request_close_conn': b'request_close_secure_connection',
         'accept_close_conn': b'accept_close_secure_connection'
     }
+    SERIAL_BYTE_NUM = 3
 
     def __init__(self, base_conn, log_file):
         ConnInterface.__init__(self, log_file)
@@ -56,7 +58,12 @@ class ConnSecure(ConnInterface):
         if not self.connected or not self.s.connected:
             self.log('Error (send): not connected')
             raise ConnectionError('not connected')
+
         try:
+            # create packet
+            msg = self.encode(msg, self.snd_num)
+            self.snd_num += 1
+
             enc = self.aes.encrypt(msg)
             self.s.send(enc)
         except Exception as e:
@@ -71,6 +78,8 @@ class ConnSecure(ConnInterface):
             raise ConnectionError('not connected')
 
         try:
+
+            # receive first packet
             data = self.s.receive()
 
             # case lower connection ended
@@ -79,14 +88,17 @@ class ConnSecure(ConnInterface):
                     raise ConnectionError('base connection ended unexpectedly')
                 else:
                     self.log('State (receive): connection already closed')
-                    return None
-
-            # case while (BLOCKED) connection ended
-            if not self.connected:
-                self.log('State (receive): connection already closed')
-                return None
+                    return b''
 
             dec = self.aes.decrypt(data)
+
+            # decode packet header
+            msg, msg_serial = self.decode(dec)
+
+            # check serial number (against sent-again-attack)
+            if msg_serial != self.rsv_num:
+                raise ConnectionError('serial number not match')
+            self.rsv_num += 1
 
         except Exception as e:
             self.disconnect()
@@ -94,12 +106,12 @@ class ConnSecure(ConnInterface):
             raise e
 
         # received close connection request
-        if dec == self.P['request_close_conn']:
+        if msg == self.P['request_close_conn']:
             self.disconnect()
             self.log('State (receive): connection ended by host')
-            return None
+            return b''
 
-        return dec
+        return msg
 
     def get_addr(self):
         return self.s.get_addr()
@@ -107,7 +119,7 @@ class ConnSecure(ConnInterface):
     def log(self, msg):
         addt = '\t'
         if self.type == 'sec_user':
-            addt = '\t\t\t'
+            addt = '\t\t\t\t\t'
         self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + addt + self.type + ':\t' + msg + '\n')
 
     def set_connection(self, side):
@@ -153,6 +165,21 @@ class ConnSecure(ConnInterface):
             # send 'conn established' encrypted message
             enc = self.aes.encrypt(self.P['secure_established'])
             self.s.send(enc)
+
+    def encode(self, msg: bytes, serial_num) -> bytes:
+        msg_serial = self.num2bytes(serial_num, self.SERIAL_BYTE_NUM)
+        return msg_serial + msg
+
+    def decode(self, msg: bytes):
+        msg_serial = self.bytes2num(msg[:self.SERIAL_BYTE_NUM])
+        msg = msg[self.SERIAL_BYTE_NUM:]
+        return msg, msg_serial
+
+    def num2bytes(self, x: int, size: int) -> bytes:
+        return x.to_bytes(size, 'big')
+
+    def bytes2num(self, xbytes: bytes) -> int:
+        return int.from_bytes(xbytes, 'big')
 
 
 """
