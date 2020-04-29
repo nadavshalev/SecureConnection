@@ -1,6 +1,6 @@
 import threading
 
-from Connection import ConnSocketClient, ConnSecureClient, ConnP2PClient, ConnSecureClientAccept
+from Connection import ConnSocketClient, ConnSecureClient, ConnP2PClient, ConnSecureClientAccept, ConnSecureServer
 
 
 class Client:
@@ -19,6 +19,7 @@ class Client:
 		self.logfile = open(log_file_name, self.LOG_TYPE)
 
 		self.conn = None
+		self.listen_conn = None
 		self.target_address = None
 
 	def connect(self, to_address):
@@ -46,8 +47,8 @@ class Client:
 		Block until connection established.
 		:return: bool - True if success
 		"""
-		conn = self.accept_init()
-		if not conn:
+		conn = self.init_create_connection()
+		if not conn or not conn.connect():
 			return False
 		self.conn = conn
 		self.target_address = conn.s.conn_addr
@@ -61,7 +62,7 @@ class Client:
 		When connection established - create a new thread and run the callback method
 		:param callback:
 		"""
-		threading.Thread(target=self.accept_callback_init, args=(callback,)).start()
+		threading.Thread(target=self.init_accept_callback, args=(callback,)).start()
 
 	def send(self, msg):
 		"""
@@ -80,8 +81,6 @@ class Client:
 		:return: received message or None if not connected
 		"""
 
-		if not self.conn:
-			return None
 		msg_bytes = self.conn.receive()
 		if not msg_bytes:
 			return None
@@ -92,38 +91,42 @@ class Client:
 		Set callback function to handle the received messages without blocking
 		:param callback: function. prarm1: ClientObj, param2: message
 		"""
-		threading.Thread(target=self.receive_callback_init, args=(callback,)).start()
+		threading.Thread(target=self.init_receive_callback, args=(callback,)).start()
 
 	def disconnect(self):
 		if self.conn:
 			self.conn.disconnect()
 			self.target_address = None
+		if self.listen_conn:
+			self.listen_conn.destroy()
 
-	def accept_init(self):
+	def init_create_connection(self):
 		conn_socket = ConnSocketClient(self.IP, self.PORT, self.logfile)
 		conn_secure = ConnSecureClient(conn_socket, self.logfile)
 		conn_p2p = ConnP2PClient(conn_secure, self.address, self.logfile)
 
-		client_secure = ConnSecureClientAccept(conn_p2p, self.logfile)
-		if not client_secure.connect():
+		if conn_p2p.connect():
+			return ConnSecureServer(conn_p2p, self.logfile)
+		else:
 			return None
-		return client_secure
 
-	def accept_callback_init(self, callback):
+	def init_accept_callback(self, callback):
 		while True:
-			conn = self.accept_init()
+			self.listen_conn = self.init_create_connection()
+			if self.listen_conn.connect():
+				# create new client for connection
+				new_client = Client(self.address, self.password, self.log_file_name)
+				new_client.conn = self.listen_conn
+				new_client.target_address = self.listen_conn.s.conn_addr
 
-			# create new client for connection
-			new_client = Client(self.address, self.password, self.log_file_name)
-			new_client.conn = conn
-			new_client.target_address = conn.s.conn_addr
+				# start callback thread
+				threading.Thread(target=callback, args=(new_client,)).start()
 
-			# start callback thread
-			threading.Thread(target=callback, args=(new_client,)).start()
-
-	def receive_callback_init(self, callback):
+	def init_receive_callback(self, callback):
 		while True:
+			if not self.conn:
+				break
 			msg = self.receive()
+			callback(self, msg)
 			if not msg:
 				break
-			callback(self, msg)

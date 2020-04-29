@@ -29,7 +29,6 @@ class ConnSocket(ConnInterface):
             self.s.close()
         except Exception as e:
             self.log('Warning (disconnect): ' + repr(e))
-        self.s = None
         self.connected = False
         self.log('Success (disconnect)')
 

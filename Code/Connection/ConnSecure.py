@@ -54,6 +54,15 @@ class ConnSecure(ConnInterface):
         self.connected = False
         self.log('Success (disconnect)')
 
+    def destroy(self):
+        if self.s.connected:
+            self.s.disconnect()
+        # clear data
+        self.aes = None
+        self.rsa = None
+        # set state to disconnected
+        self.connected = False
+
     def send(self, msg: bytes, hard_fail=False):
         if not self.connected or not self.s.connected:
             self.log('Error (send): not connected')

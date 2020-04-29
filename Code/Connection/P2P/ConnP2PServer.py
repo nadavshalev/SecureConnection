@@ -63,7 +63,6 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
                     self.disconnect()
                     return False
                 self.conn_dict[self.my_addr] = self
-
             else:
                 self.log("Error (start): connection type wrong: " + repr(conn_type))
                 self.disconnect()
@@ -82,7 +81,7 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
             try:
                 data, to_, from_ = self.receive()
 
-                if not self.connected:
+                if not self.connected or not data:
                     break
 
                 if not self.validate_receive(data, from_, to_):
@@ -109,6 +108,20 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
         if not self.connected:
             return
 
+        self.s.disconnect()
+
+        self.connected = False
+
+        # if still connected - disconnect from pair connection
+        if self.conn_obj:
+            self.conn_obj.destroy()
+
+        self.log('Success (disconnect)')
+
+    def destroy(self):
+        if not self.connected:
+            return
+
         try:
             # try send close request and disconnect
             if self.s.connected:
@@ -119,8 +132,4 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
             pass
 
         self.connected = False
-        # if still connected - disconnect from pair connection
-        if self.conn_obj and self.conn_obj.connected:
-            self.conn_obj.disconnect()
-
-        self.log('Success (disconnect)')
+        self.log('Success (destroy)')

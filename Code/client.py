@@ -1,9 +1,9 @@
-from Client.Client import Client
-import threading
+from Client import Client
 
 
 def receive_msg(conn, message):
-    print(f'{conn.target_address}: {message}')
+    if message:
+        print(f'{conn.target_address}: {message}')
 
 
 my_addr = input('my address: ')
