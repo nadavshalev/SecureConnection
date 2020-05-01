@@ -2,9 +2,13 @@ import threading
 from abc import ABCMeta
 
 from Connection.P2P import ConnP2P
+import queue
+
+from Connection.P2P.ConnP2P import P2PMessage
 
 
 class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
+    MSG_CONN_CLOSED = b'123rc132dx13rc'
 
     def __init__(self, base_conn, conn_dict, log_file):
         # set connection (my_addr = None)
@@ -13,7 +17,7 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
         self.conn_dict = conn_dict
         self.conn_obj = None
 
-    def start(self):
+    def run(self):
 
         # set lower connection
         if not self.s.connect():
@@ -21,115 +25,89 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
             return False
 
         try:
-            self.connected = True
-            # receive connection params from user
-            conn_type, conn_addr, my_addr = self.receive()
-            # set current address
-            self.my_addr = my_addr
 
-            # case try to connect to other user
-            if conn_type == self.P['request_new_connection']:
-                # check if user in dict
-                if conn_addr not in self.conn_dict:
-                    self.log("Error (start): requested address not active: ")
-                    self.disconnect()
-                    return False
+            # receive username
+            username = self.s.receive()
+            self.username = username
 
-                # set other address
-                self.conn_addr = conn_addr
+            self.conn_dict[self.username] = queue.Queue()
 
-                # set other P2Pobj as param and delete from dict
-                self.conn_obj = self.conn_dict[conn_addr]
-                del self.conn_dict[conn_addr]
+            # start wait for messages to send to this conn
+            threading.Thread(target=self.send_to_conn).start()
 
-                # set own address in conn_obj
-                self.conn_obj.conn_addr = self.my_addr
-                self.conn_obj.conn_obj = self
-
-                # set accept_connection message to the users
-                msg = self.encode(self.P['accept_connection'], to_=self.my_addr, from_=self.conn_addr)
-                self.send(msg)
-                msg = self.encode(self.P['accept_connection'], to_=self.conn_addr, from_=self.my_addr)
-                self.conn_obj.send(msg)
-
-                # start other listen on thread
-                threading.Thread(target=self.conn_obj.run, args=(self,)).start()
-                # start current listen
-                self.run(self.conn_obj)
-
-            elif conn_type == self.P['wait_for_connection']:
-                if self.my_addr in self.conn_dict:
-                    self.log("Error (start): user identifier already wait for connections: ")
-                    self.disconnect()
-                    return False
-                self.conn_dict[self.my_addr] = self
-            else:
-                self.log("Error (start): connection type wrong: " + repr(conn_type))
-                self.disconnect()
-                return False
+            # start listen on this conn
+            self.receive_from_conn()
 
         except Exception as e:
             self.log("Error (start): while running - " + repr(e))
             self.disconnect()
             return False
 
+        self.connected = True
         return True
 
-    def run(self, other):
-        self.log('Success (run)')
+    def receive_from_conn(self):
         while True:
             try:
-                data, to_, from_ = self.receive()
+                data = self.receive()
+                # decode msg
+                msg = P2PMessage.decode(data)
+                msg.from_ = self.username
 
-                if not self.connected or not data:
+                # user ask to disconnect or connection failed
+                if not self.connected or \
+                        not msg.data or \
+                        msg.data == self.P['request_close_connection']:
+                    self.log('State (get_from_conn): connection ended')
+                    self.disconnect_from_receive()
                     break
 
-                if not self.validate_receive(data, from_, to_):
-                    self.log('Error (run): validation failed')
-                    self.disconnect()
-                    break
-
-                # disconnected
-                if data == self.P['request_close_connection']:
-                    self.log('State (run): connection ended by user')
-                    self.disconnect()
-                    break
-
-                msg = other.encode(data, to_=other.my_addr, from_=self.my_addr)
-                other.send(msg)
+                if msg.to_ in self.conn_dict:
+                    self.conn_dict[msg.to_].put(msg)
+                else:
+                    self.log(f"Warning (get_from_conn): address {msg.to_} not found in active connections")
             except Exception as e:
-                self.log("Error (run): " + repr(e))
-                self.disconnect()
+                self.log("Error (get_from_conn): while running - " + repr(e))
+                self.disconnect_from_receive()
                 break
 
-        print(f'exit run() thread: {self.my_addr}')
+    def send_to_conn(self):
+        while True:
+            try:
+                msg = self.conn_dict[self.username].get()
 
-    def disconnect(self):
-        if not self.connected:
-            return
+                if not self.connected or msg.data == self.MSG_CONN_CLOSED:
+                    self.log('State (send_to_conn): connection closed')
+                    self.disconnect_from_send()
+                    break
+
+                self.send(msg.encode())
+            except Exception as e:
+                self.log("Error (send_to_conn): while running - " + repr(e))
+                self.disconnect_from_send()
+                break
+
+    def disconnect_from_receive(self):
 
         self.s.disconnect()
 
-        self.connected = False
-
-        # if still connected - disconnect from pair connection
-        if self.conn_obj:
-            self.conn_obj.destroy()
-
-        self.log('Success (disconnect)')
-
-    def destroy(self):
-        if not self.connected:
-            return
-
-        try:
-            # try send close request and disconnect
-            if self.s.connected:
-                msg = self.encode(self.P['closed_connection'], to_=self.my_addr, from_=self.conn_addr)
-                self.send(msg, hard_fail=True)
-                self.s.disconnect()
-        except:
-            pass
+        # wake up send thread for close
+        if self.username in self.conn_dict:
+            msg = P2PMessage(self.MSG_CONN_CLOSED)
+            self.conn_dict[self.username].put(msg)
 
         self.connected = False
-        self.log('Success (destroy)')
+
+        self.log('Success (disconnect_from_receive)')
+
+    def disconnect_from_send(self):
+
+        # also wake up receive thread because sock.shutdown
+        self.s.disconnect()
+
+        if self.username in self.conn_dict:
+            del self.conn_dict[self.username]
+
+        self.connected = False
+
+        self.log('Success (disconnect_from_send)')

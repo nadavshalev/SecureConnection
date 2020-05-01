@@ -26,6 +26,7 @@ class ConnSocket(ConnInterface):
             return
 
         try:
+            self.s.shutdown(socket.SHUT_RDWR)
             self.s.close()
         except Exception as e:
             self.log('Warning (disconnect): ' + repr(e))

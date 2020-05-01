@@ -5,6 +5,32 @@ from Connection import ConnInterface
 import json
 
 
+
+
+class P2PMessage:
+    DELIM = '!~!'
+
+    def __init__(self, data: bytes, to_: str = '', from_: str = ''):
+        self.data = data
+        self.to_ = to_
+        self.from_ = from_
+
+    def validate(self):
+        pass
+
+    def encode(self) -> bytes:
+        header = self.to_ + self.DELIM + self.from_ + self.DELIM
+        msg = [header.encode(), self.data]
+        return b''.join(msg)
+
+    @staticmethod
+    def decode(data: bytes):
+        data_split = data.split(P2PMessage.DELIM.encode(), 2)
+        if len(data_split) != 3:
+            raise ValueError('cant split to 3')
+        return P2PMessage(data_split[2], data_split[0].decode(), data_split[1].decode())
+
+
 class ConnP2P(ConnInterface):
 
     P = {
@@ -18,11 +44,11 @@ class ConnP2P(ConnInterface):
     }
     ADDR_SIZE = 32
 
-    def __init__(self, base_conn, my_addr, log_file):
+    def __init__(self, base_conn, username, log_file):
         ConnInterface.__init__(self, log_file)
         self.s = base_conn
         self.type = 'p2p'
-        self.my_addr = my_addr
+        self.username = username
         self.conn_addr = None
 
     def connect(self):
@@ -45,7 +71,7 @@ class ConnP2P(ConnInterface):
             self.log('Error (send): ' + repr(e))
             raise e
 
-    def receive(self):
+    def receive(self) -> bytes:
         if not self.connected or not self.s.connected:
             self.log('Error (receive): not connected')
             raise ConnectionError('not connected')
@@ -57,31 +83,14 @@ class ConnP2P(ConnInterface):
                     raise ConnectionError('base connection ended unexpectedly')
                 else:
                     self.log('State (receive): connection already closed')
-                    return b'', b'', b''
-
-            # decode json
-            msg, to_addr, from_addr = self.decode(data)
+                    return b''
 
         except Exception as e:
             self.disconnect()
             self.log('Error (receive): ' + repr(e))
             raise e
 
-        return msg, to_addr, from_addr
-
-    def validate_receive(self, msg, to_, from_):
-
-        # case 'my_name' is not the message address
-        if self.my_addr != to_:
-            self.log('Error (validate_receive): message received in wrong address')
-            return False
-
-        # case already connected to address
-        if self.conn_addr and self.conn_addr != from_:
-            self.log('Error (validate_receive): message sent from wrong address')
-            return False
-
-        return True
+        return data
 
     def encode(self, msg: bytes, to_: str, from_: str) -> bytes:
         if not to_:
@@ -104,7 +113,7 @@ class ConnP2P(ConnInterface):
         return msg, to_, from_
 
     def get_addr(self):
-        return self.my_addr
+        return self.username
 
     def log(self, msg):
         self.log_file.write(str(datetime.datetime.now()) + '\t' + repr(self.get_addr()) + '\t\t\t\t\t' + self.type + ':\t\t' + msg + '\n')
