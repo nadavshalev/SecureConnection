@@ -1,27 +1,33 @@
+import os
+import time
+
 from Client import Client
 
 
-def receive_msg(conn, message):
-    if message:
-        print(f'{conn.target_address}: {message}')
+def clear_screen():
+    # for windows
+    if os.name == 'nt':
+        _ = os.system('cls')
+    # for mac and linux(here, os.name is 'posix')
+    else:
+        _ = os.system('clear')
+
+def receive_msg(client):
+    while client.connected:
+        client.print_status()
+        time.sleep(0.5)
+        clear_screen()
 
 
-my_addr = input('my address: ')
-other_addr = input('connect to: ')
+username = input('username: ')
 
-client = Client(my_addr, '123123')
+client = Client(username, '123123')
 
-if other_addr:
-    if not client.connect(other_addr):
-        print('failed to connect. exit')
-        exit(1)
-else:
-    if not client.accept():
-        print('failed to connect. exit')
-        exit(1)
+if not client.connect():
+    print('failed to connect. exit')
+    exit(1)
 
-client.receive_callback(receive_msg)
-
+other_user = input('connect to: ')
 
 print('======== start ==========')
 while True:
@@ -30,7 +36,8 @@ while True:
         client.disconnect()
         exit(0)
     try:
-        client.send(msg)
+        client.send(msg, other_user)
+        client.print_status()
     except Exception as e:
         print(repr(e))
         exit(0)

@@ -4,60 +4,22 @@ import base64
 from Connection import ConnInterface
 import json
 
+class ConnP2P:
 
-
-
-class P2PMessage:
-    DELIM = '!~!'
-
-    def __init__(self, data: bytes, to_: str = '', from_: str = ''):
-        self.data = data
-        self.to_ = to_
-        self.from_ = from_
-
-    def validate(self):
-        pass
-
-    def encode(self) -> bytes:
-        header = self.to_ + self.DELIM + self.from_ + self.DELIM
-        msg = [header.encode(), self.data]
-        return b''.join(msg)
-
-    @staticmethod
-    def decode(data: bytes):
-        data_split = data.split(P2PMessage.DELIM.encode(), 2)
-        if len(data_split) != 3:
-            raise ValueError('cant split to 3')
-        return P2PMessage(data_split[2], data_split[0].decode(), data_split[1].decode())
-
-
-class ConnP2P(ConnInterface):
-
-    P = {
-        'request_new_connection': b'request_connection_to_address',
-        'wait_for_connection': b'wait_for_connection_from_anyone',
-        'accept_connection': b'accept_connection_to_address',
-        'set_connection': b'set_connection_from_address',
-        'request_close_connection': b'request_close_connection_to_address',
-        'closed_connection': b'closed_connection_from_address',
-        'closed_connection_accepted': b'closed_connection_accepted_by_user'
-    }
+    REQUEST_CLOSE_CONNECTION = b'request_close_connection_to_address'
     ADDR_SIZE = 32
 
     def __init__(self, base_conn, username, log_file):
-        ConnInterface.__init__(self, log_file)
+        self.log_file = log_file
+        self.connected = False
         self.s = base_conn
         self.type = 'p2p'
         self.username = username
-        self.conn_addr = None
-
-    def connect(self):
-        raise NotImplementedError
 
     def disconnect(self):
         raise NotImplementedError
 
-    def send(self, msg: bytes, hard_fail=False):
+    def send_(self, msg: bytes, hard_fail=False):
         if not self.connected or not self.s.connected:
             self.log('Error (send): not connected')
             raise ConnectionError('not connected')

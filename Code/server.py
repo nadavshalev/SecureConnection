@@ -27,7 +27,7 @@ class ThreadedServer:
         obj_secure = ConnSecureServer(obj_sock, f)
         obj_p2p = ConnP2PServer(obj_secure, self.conn_dict, f)
 
-        obj_p2p.start()
+        obj_p2p.run()
 
 
 DEBUG = True

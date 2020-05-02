@@ -1,13 +1,11 @@
 import threading
-from abc import ABCMeta
+from abc import ABCMeta, ABC
 
-from Connection.P2P import ConnP2P
+from Connection.P2P import ConnP2P, P2PMessage
 import queue
 
-from Connection.P2P.ConnP2P import P2PMessage
 
-
-class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
+class ConnP2PServer(ConnP2P):
     MSG_CONN_CLOSED = b'123rc132dx13rc'
 
     def __init__(self, base_conn, conn_dict, log_file):
@@ -27,10 +25,13 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
         try:
 
             # receive username
+            # TODO: user auth
             username = self.s.receive()
-            self.username = username
+            self.username = username.decode()
 
             self.conn_dict[self.username] = queue.Queue()
+
+            self.connected = True
 
             # start wait for messages to send to this conn
             threading.Thread(target=self.send_to_conn).start()
@@ -57,19 +58,21 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
                 # user ask to disconnect or connection failed
                 if not self.connected or \
                         not msg.data or \
-                        msg.data == self.P['request_close_connection']:
-                    self.log('State (get_from_conn): connection ended')
+                        msg.data == self.REQUEST_CLOSE_CONNECTION:
+                    self.log('State (receive_from_conn): connection ended')
                     self.disconnect_from_receive()
                     break
 
                 if msg.to_ in self.conn_dict:
                     self.conn_dict[msg.to_].put(msg)
                 else:
-                    self.log(f"Warning (get_from_conn): address {msg.to_} not found in active connections")
+                    self.log(f"Warning (receive_from_conn): address {msg.to_} not found in active connections")
+
             except Exception as e:
-                self.log("Error (get_from_conn): while running - " + repr(e))
+                self.log("Error (receive_from_conn): while running - " + repr(e))
                 self.disconnect_from_receive()
                 break
+        print(f'{self.username} exit receive')
 
     def send_to_conn(self):
         while True:
@@ -81,11 +84,13 @@ class ConnP2PServer(ConnP2P, metaclass=ABCMeta):
                     self.disconnect_from_send()
                     break
 
-                self.send(msg.encode())
+                self.send_(msg.encode())
             except Exception as e:
                 self.log("Error (send_to_conn): while running - " + repr(e))
                 self.disconnect_from_send()
                 break
+
+        print(f'{self.username} exit send')
 
     def disconnect_from_receive(self):
 

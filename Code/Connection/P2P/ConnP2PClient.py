@@ -1,11 +1,15 @@
-from Connection.P2P import ConnP2P
+import queue
+import threading
+from abc import ABCMeta
+
+from Connection.P2P import ConnP2P, P2PMessage
 
 
 class ConnP2PClient(ConnP2P):
 
-    def __init__(self, base_conn, my_addr, log_file, conn_addr=None):
-        ConnP2P.__init__(self, base_conn, my_addr, log_file)
-        self.conn_addr = conn_addr
+    def __init__(self, base_conn, username, conn_dict, log_file):
+        ConnP2P.__init__(self, base_conn, username, log_file)
+        self.conn_dict = conn_dict
 
     def connect(self):
         if self.connected:
@@ -19,16 +23,10 @@ class ConnP2PClient(ConnP2P):
         try:
             self.connected = True
 
-            # try to connect to address
-            if self.conn_addr:
+            # send request for new connection with username
+            self.s.send(self.username.encode())
 
-                # set connection (BLOCKING) raise error if fails
-                if not self.set_new_connection():
-                    return False
-            else:
-                # waits for connection (BLOCKING)
-                if not self.set_wait_connection():
-                    return False
+            # TODO: server auth
 
         except Exception as e:
             self.log("Error (connect): can't connect - " + repr(e))
@@ -38,6 +36,40 @@ class ConnP2PClient(ConnP2P):
         self.log('Success (connect)')
         return True
 
+    def send(self, msg: bytes, to_address: str):
+        msg = P2PMessage(msg, to_address, self.username)
+        ConnP2P.send_(self, msg.encode())
+
+    def listen(self):
+        threading.Thread(target=self.init_listen).start()
+
+    def init_listen(self):
+        while True:
+            try:
+                data = self.receive()
+                # decode msg
+                msg = P2PMessage.decode(data)
+                if msg.to_ != self.username:
+                    raise ConnectionError('message received with wrong destination address')
+
+                # case connection failed
+                if not self.connected or not msg.data:
+                    raise ConnectionError('connection ended')
+
+                # if ask close connection
+                if msg.data == self.REQUEST_CLOSE_CONNECTION:
+                    if msg.from_ in self.conn_dict:
+                        del self.conn_dict[msg.from_]
+                else:
+                    if msg.from_ not in self.conn_dict:
+                        self.conn_dict[msg.from_] = queue.Queue()
+                    self.conn_dict[msg.from_].put(msg)
+
+            except Exception as e:
+                self.log("Error (get_from_conn): while running - " + repr(e))
+                self.destroy()
+                break
+
     def disconnect(self):
         if not self.connected:
             return
@@ -45,68 +77,17 @@ class ConnP2PClient(ConnP2P):
         if self.s.connected:
             # send close request (should not fail)
             try:
-                self.send(self.P['request_close_connection'], hard_fail=True)
+                msg = P2PMessage(self.REQUEST_CLOSE_CONNECTION)
+                self.send_(msg.encode(), hard_fail=True)
             except:
                 pass
-        self.clear_connection()
+        self.destroy()
         self.log('Success (disconnect)')
 
-    def set_new_connection(self):
-        # send request for new connection
-        self.send(self.P['request_new_connection'])
-
-        # receive response from server
-        data = self.receive()
-
-        # case server didn't accept
-        if data != self.P['accept_connection']:
-            self.log('Error (set_new_connection): connection denied by server: ' + repr(data))
-            self.disconnect()
-            return False
-        return True
-
-    def set_wait_connection(self):
-        # send request for new connection
-        self.send(self.P['wait_for_connection'])
-
-        # receive response from server
-        data = self.receive()
-
-        # case server didn't accept
-        if data != self.P['accept_connection']:
-            self.log('Error (set_wait_connection): connection denied by server: ' + repr(data))
-            self.disconnect()
-            return False
-        return True
-
-    def send(self, msg: bytes, hard_fail=False):
-        msg = self.encode(msg, to_=self.conn_addr, from_=self.my_addr)
-        ConnP2P.send(self, msg, hard_fail)
-
-    def receive(self) -> bytes:
-        data, to_, from_ = ConnP2P.receive(self)
-
-        # case connection already closed
-        if not self.connected:
-            return b''
-
-        if data == self.P['closed_connection']:
-            # self.send(self.P['closed_connection_accepted'])
-            self.clear_connection()
-            self.log('State (receive): connection ended by other')
-            return b''
-
-        if not self.validate_receive(data, to_, from_):
-            raise ConnectionError('validation failed')
-        if not self.conn_addr:
-            self.conn_addr = from_
-        return data
-
-    def clear_connection(self):
+    def destroy(self):
         # disconnect base connection
         if self.s.connected:
             self.s.disconnect()
-        # clear data
-        self.conn_addr = None
+        self.conn_dict = {}
         # set state to disconnected
         self.connected = False
