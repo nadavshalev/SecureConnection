@@ -50,10 +50,8 @@ class Client:
 		except:
 			return False
 
-		if to_address not in self.conn_dict:
-			self.conn_dict[to_address] = queue.Queue()
 		msg = P2PMessage(data.encode(), to_address, self.username)
-		self.conn_dict[to_address].put(msg)
+		self.conn.add(msg)
 		return True
 
 	def disconnect(self):
@@ -64,7 +62,7 @@ class Client:
 	def print_status(self):
 		for user in self.conn_dict:
 			print(user)
-			for msg in self.conn_dict[user].queue:
+			for msg in self.conn_dict[user].messages:
 				if msg.from_ == self.username:
 					print('\tme:\t' + msg.data.decode())
 				else:

@@ -14,6 +14,9 @@ class P2PMessage:
         msg = [header.encode(), self.data]
         return b''.join(msg)
 
+    def __repr__(self):
+        return f'{self.from_} -> {self.to_}: {self.data}'
+
     @staticmethod
     def decode(data: bytes):
         data_split = data.split(P2PMessage.DELIM.encode(), 2)

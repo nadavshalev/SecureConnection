@@ -3,6 +3,7 @@ import threading
 from abc import ABCMeta
 
 from Connection.P2P import ConnP2P, P2PMessage
+from Connection.P2PSecure import P2PSecure
 
 
 class ConnP2PClient(ConnP2P):
@@ -36,8 +37,15 @@ class ConnP2PClient(ConnP2P):
         self.log('Success (connect)')
         return True
 
-    def send(self, msg: bytes, to_address: str):
-        msg = P2PMessage(msg, to_address, self.username)
+    def send(self, data: bytes, to_address: str):
+        msg = P2PMessage(data, to_address, self.username)
+        if msg.to_ not in self.conn_dict:
+            self.conn_dict[msg.to_] = P2PSecure(self.username, self)
+        msg.data = self.conn_dict[msg.to_].encrypt(msg.data)
+        ConnP2P.send_(self, msg.encode())
+
+    def row_send(self, data: bytes, to_address: str):
+        msg = P2PMessage(data, to_address, self.username)
         ConnP2P.send_(self, msg.encode())
 
     def listen(self):
@@ -62,13 +70,18 @@ class ConnP2PClient(ConnP2P):
                         del self.conn_dict[msg.from_]
                 else:
                     if msg.from_ not in self.conn_dict:
-                        self.conn_dict[msg.from_] = queue.Queue()
-                    self.conn_dict[msg.from_].put(msg)
+                        self.conn_dict[msg.from_] = P2PSecure(self.username, self)
+                    self.conn_dict[msg.from_].get(msg)
 
             except Exception as e:
                 self.log("Error (get_from_conn): while running - " + repr(e))
                 self.destroy()
                 break
+
+    def add(self, msg):
+        if msg.to_ not in self.conn_dict:
+            self.conn_dict[msg.to_] = P2PSecure(self.username, self)
+        self.conn_dict[msg.to_].add(msg)
 
     def disconnect(self):
         if not self.connected:
@@ -91,3 +104,4 @@ class ConnP2PClient(ConnP2P):
         self.conn_dict = {}
         # set state to disconnected
         self.connected = False
+

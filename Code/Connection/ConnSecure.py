@@ -256,7 +256,6 @@ class ConnSecureServer(ConnSecure):
         self.log('Success (connect)')
         return True
 
-
 class ConnSecureClientAccept(ConnSecure):
 
     def connect(self):
@@ -283,4 +282,3 @@ class ConnSecureClientAccept(ConnSecure):
         self.connected = True
         self.log('Success (connect)')
         return True
-
