@@ -7,6 +7,7 @@ import json
 class ConnP2P:
 
     REQUEST_CLOSE_CONNECTION = b'request_close_connection_to_address'
+    REQUEST_TERMINATE_CONNECTION = b'AS78tAS865Vdgf'
     ADDR_SIZE = 32
 
     def __init__(self, base_conn, username, log_file):

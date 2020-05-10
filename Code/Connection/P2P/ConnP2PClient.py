@@ -49,7 +49,7 @@ class ConnP2PClient(ConnP2P):
         self.log('Success (connect)')
         return True
 
-    def send(self, data: bytes, to_address: str):
+    def send(self, data: bytes, to_address: str, hard_fail=False):
         """
         Encrypt and send data to specific user.
         Secure connection is open automatically even in the first message
@@ -96,16 +96,21 @@ class ConnP2PClient(ConnP2P):
                 # decode msg
                 msg = P2PMessage.decode(data)
 
+                if not self.connected or \
+                        not msg.data or \
+                        msg.data == self.REQUEST_TERMINATE_CONNECTION:
+                    self.destroy()
+                    self.log("Status (init_listen): exit listen")
+                    break
+
+                if msg.data == self.REQUEST_TERMINATE_CONNECTION:
+                    self.disconnect()
+                    self.log("Status (init_listen): disconnect from listen")
+                    break
+
                 # if message not address to me - raise an error
                 if msg.to_ != self.username:
                     raise ConnectionError('message received with wrong destination address')
-
-                # case connection failed
-                if not self.connected or not msg.data:
-                    raise ConnectionError('connection ended')
-
-                if msg.data == self.REQUEST_CLOSE_CONNECTION:
-                    raise ConnectionError('connection ended')
 
                 # if ask to close user-level connection
                 if msg.data == self.REQUEST_CLOSE_USER_CONN:
@@ -122,7 +127,7 @@ class ConnP2PClient(ConnP2P):
                 self.conn_dict[msg.from_].get(msg)
 
             except Exception as e:
-                self.log("Error (get_from_conn): while running - " + repr(e))
+                self.log("Error (init_listen): while running - " + repr(e))
                 self.disconnect()
                 break
 
@@ -150,10 +155,10 @@ class ConnP2PClient(ConnP2P):
 
         # disconnect from server
         if self.s.connected:
-            # first inform all users
+            # first inform all connected users
             for user in self.conn_dict:
                 try:
-                    self.close(user)
+                    self.send(self.REQUEST_CLOSE_USER_CONN, user, hard_fail=True)
                 except:
                     pass
 
@@ -164,7 +169,7 @@ class ConnP2PClient(ConnP2P):
             except:
                 pass
 
-        self.destroy()
+        # self.destroy()
         self.log('Success (disconnect)')
 
     def destroy(self):

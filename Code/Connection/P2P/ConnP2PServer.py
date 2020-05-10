@@ -48,10 +48,10 @@ class ConnP2PServer(ConnP2P):
             self.connected = True
 
             # start wait for messages to send to this conn
-            threading.Thread(target=self.send_to_conn).start()
+            threading.Thread(target=self.income_to_conn).start()
 
             # start listen on this conn
-            self.receive_from_conn()
+            self.outgoing_from_conn()
 
         except Exception as e:
             self.log("Error (start): while running - " + repr(e))
@@ -61,7 +61,7 @@ class ConnP2PServer(ConnP2P):
         self.connected = True
         return True
 
-    def receive_from_conn(self):
+    def outgoing_from_conn(self):
         """
         Get outgoing messages from channel and pass them to the correct input queue
         """
@@ -79,22 +79,22 @@ class ConnP2PServer(ConnP2P):
                 if not self.connected or \
                         not msg.data or \
                         msg.data == self.REQUEST_CLOSE_CONNECTION:
-                    self.log('State (receive_from_conn): connection ended')
-                    self.disconnect_from_receive()
+                    self.disconnect_from_outgoing()
+                    self.log('State (outgoing_from_conn): connection ended')
                     break
 
                 if msg.to_ in self.conn_dict:
                     self.conn_dict[msg.to_].put(msg)
                 else:
-                    self.log(f"Warning (receive_from_conn): address {msg.to_} not found in active connections")
+                    self.log(f"Warning (outgoing_from_conn): address {msg.to_} not found in active connections")
 
             except Exception as e:
-                self.log("Error (receive_from_conn): while running - " + repr(e))
-                self.disconnect_from_receive()
+                self.log("Error (outgoing_from_conn): while running - " + repr(e))
+                self.disconnect_from_outgoing()
                 break
         print(f'{self.username} exit receive')
 
-    def send_to_conn(self):
+    def income_to_conn(self):
         """
         Listen on income queue and send message to user channel
         """
@@ -105,22 +105,26 @@ class ConnP2PServer(ConnP2P):
                 msg = self.conn_dict[self.username].get()
 
                 if not self.connected or msg.data == self.MSG_CONN_CLOSED:
-                    self.log('State (send_to_conn): connection closed')
-                    self.disconnect_from_send()
+                    self.disconnect_from_income()
+                    self.log('State (income_to_conn): connection closed')
                     break
 
                 self.send_(msg.encode())
             except Exception as e:
-                self.log("Error (send_to_conn): while running - " + repr(e))
-                self.disconnect_from_send()
+                self.log("Error (income_to_conn): while running - " + repr(e))
+                self.disconnect_from_income()
                 break
 
         print(f'{self.username} exit send')
 
-    def disconnect_from_receive(self):
+    def disconnect_from_outgoing(self):
         """
-        Disconnect when request got from receive thread
+        Disconnect when request got from outgoing thread
         """
+
+        # inform user listen thread
+        msg = P2PMessage(self.REQUEST_TERMINATE_CONNECTION)
+        self.send_(msg.encode())
 
         self.s.disconnect()
 
@@ -131,19 +135,16 @@ class ConnP2PServer(ConnP2P):
 
         self.connected = False
 
-        self.log('Success (disconnect_from_receive)')
+        self.log('Success (disconnect_from_outgoing)')
 
-    def disconnect_from_send(self):
+    def disconnect_from_income(self):
         """
         Disconnect when request got from send thread
         """
-
-        # also wake up receive thread because sock.shutdown
-        self.s.disconnect()
 
         if self.username in self.conn_dict:
             del self.conn_dict[self.username]
 
         self.connected = False
 
-        self.log('Success (disconnect_from_send)')
+        self.log('Success (disconnect_from_income)')
