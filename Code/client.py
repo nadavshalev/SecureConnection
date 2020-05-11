@@ -52,7 +52,7 @@ other_user = input('connect to: ')
 
 print('======== start ==========')
 
-# threading.Thread(target=receive_msg, args=(client,)).start()
+threading.Thread(target=receive_msg, args=(client,)).start()
 #
 # with keyboard.Listener(
 #         on_press=on_press) as listener:
@@ -60,10 +60,9 @@ print('======== start ==========')
 
 while True:
     user_input = input('> ')
-    clear_screen()
+    # clear_screen()
     if user_input == 'Q':
         client.disconnect()
         exit(0)
     else:
         client.send(user_input, other_user)
-        client.print_status()

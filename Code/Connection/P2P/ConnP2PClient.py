@@ -53,6 +53,7 @@ class ConnP2PClient(ConnP2P):
         """
         Encrypt and send data to specific user.
         Secure connection is open automatically even in the first message
+        :param hard_fail: don't attempt to disconnect if fail
         :param data: data to send
         :param to_address: send to this user
         """
@@ -66,16 +67,17 @@ class ConnP2PClient(ConnP2P):
         msg.data = self.conn_dict[msg.to_].encrypt(msg.data)
 
         # send
-        ConnP2P.send_(self, msg.encode())
+        ConnP2P.send_(self, msg.encode(), hard_fail=hard_fail)
 
-    def row_send(self, data: bytes, to_address: str):
+    def row_send(self, data: bytes, to_address: str, hard_fail=False):
         """
         Send data without encryption - used for connection establishment
+        :param hard_fail: don't attempt to disconnect if fail
         :param data: data to send
         :param to_address: send to this user
         """
         msg = P2PMessage(data, to_address, self.username)
-        ConnP2P.send_(self, msg.encode())
+        ConnP2P.send_(self, msg.encode(), hard_fail=hard_fail)
 
     def listen(self):
         """
@@ -142,7 +144,7 @@ class ConnP2PClient(ConnP2P):
 
     def close(self, to_address):
         if to_address in self.conn_dict:
-            self.send(self.REQUEST_CLOSE_USER_CONN, to_address)
+            self.row_send(self.REQUEST_CLOSE_USER_CONN, to_address)
             del self.conn_dict[to_address]
 
     def disconnect(self):
@@ -158,7 +160,7 @@ class ConnP2PClient(ConnP2P):
             # first inform all connected users
             for user in self.conn_dict:
                 try:
-                    self.send(self.REQUEST_CLOSE_USER_CONN, user, hard_fail=True)
+                    self.row_send(self.REQUEST_CLOSE_USER_CONN, user, hard_fail=True)
                 except:
                     pass
 
